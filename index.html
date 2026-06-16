@@ -9,7 +9,7 @@
 <style>
   :root {
     --bg:#0d1117;--surface:#161b22;--surface2:#1c2230;--border:#30363d;
-    --accent:#58a6ff;--accent2:#3fb950;--accent3:#f78166;--accent4:#d2a8ff;--accent5:#ffa657;
+    --accent:#58a6ff;--accent2:#3fb950;--accent3:#f78166;
     --text:#e6edf3;--text2:#8b949e;--text3:#484f58;
     --radius:8px;--font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono','Fira Code',monospace;
   }
@@ -24,19 +24,16 @@
   .tab-btn.active{background:var(--surface2);color:var(--accent);font-weight:600;}
   .header-right{margin-left:auto;}
   .badge{font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:2px 8px;border-radius:20px;font-family:var(--mono);}
-  main{padding:24px;max-width:1400px;margin:0 auto;}
-
+  main{padding:24px;max-width:1500px;margin:0 auto;}
   .filters-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:20px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);}
   .filter-group{display:flex;flex-direction:column;gap:3px;}
   .filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:var(--text3);font-weight:600;}
   select,input[type=text]{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:13px;padding:6px 10px;border-radius:6px;cursor:pointer;outline:none;min-width:160px;transition:border-color .15s;}
   select:focus,input:focus{border-color:var(--accent);}
   .filter-sep{width:1px;height:32px;background:var(--border);margin:0 4px;align-self:center;}
-  .btn-reset{background:none;border:1px solid var(--border);color:var(--text2);font-size:12px;font-family:var(--font);padding:6px 12px;border-radius:6px;cursor:pointer;transition:all .15s;}
+  .btn-reset{background:none;border:1px solid var(--border);color:var(--text2);font-size:12px;font-family:var(--font);padding:6px 12px;border-radius:6px;cursor:pointer;}
   .btn-reset:hover{border-color:var(--accent3);color:var(--accent3);}
-
   .panel{display:none;}.panel.active{display:block;}
-
   .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px;}
   .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
   .kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:6px;}
@@ -45,7 +42,6 @@
   .kpi-delta{display:inline-block;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;margin-top:4px;}
   .kpi-delta.up{background:rgba(63,185,80,.15);color:var(--accent2);}
   .kpi-delta.dn{background:rgba(247,129,102,.15);color:var(--accent3);}
-
   .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
   .full-col{margin-bottom:16px;}
   @media(max-width:900px){.two-col{grid-template-columns:1fr;}}
@@ -54,41 +50,36 @@
   .card-title{font-size:13px;font-weight:600;}
   .card-meta{font-size:11px;color:var(--text2);}
   .chart-wrap{padding:16px;position:relative;height:300px;}
-  .chart-wrap-tall{padding:16px;position:relative;height:380px;}
 
   /* ── GROUPED TABLE ── */
-  .table-wrap{overflow-x:auto;max-height:560px;overflow-y:auto;}
+  .table-wrap{overflow-x:auto;max-height:600px;overflow-y:auto;}
   table{width:100%;border-collapse:collapse;font-size:12.5px;}
   thead{position:sticky;top:0;z-index:2;}
-  th{background:var(--surface2);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;}
+  th{background:var(--surface2);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;}
+  th:first-child{text-align:left;}
   th:hover{color:var(--text);}
   th.sort-asc::after{content:' ▲';font-size:9px;}
   th.sort-desc::after{content:' ▼';font-size:9px;}
-  td{padding:9px 12px;border-bottom:1px solid rgba(48,54,61,.4);white-space:nowrap;}
 
   /* SG row */
-  tr.sg-row td{background:var(--surface2);font-weight:700;cursor:pointer;}
-  tr.sg-row:hover td{background:#232b3a;}
-  tr.sg-row td.sg-name{color:var(--accent);font-size:13px;}
-  tr.sg-row td.num{font-family:var(--mono);text-align:right;color:var(--text);}
+  tr.sg-row td{background:rgba(88,166,255,.06);cursor:pointer;border-bottom:1px solid var(--border);}
+  tr.sg-row:hover td{background:rgba(88,166,255,.12);}
+  tr.sg-row .sg-name{color:var(--accent);font-weight:700;font-size:13px;text-align:left;padding-left:12px;}
+  tr.sg-row td{padding:10px 12px;font-family:var(--mono);text-align:right;}
   .expand-icon{display:inline-block;width:16px;text-align:center;margin-right:6px;font-size:10px;transition:transform .15s;}
-  .expanded .expand-icon{transform:rotate(90deg);}
+  tr.sg-row.expanded .expand-icon{transform:rotate(90deg);}
 
   /* Fondo row */
-  tr.fondo-row td{padding-left:36px;color:var(--text2);}
+  tr.fondo-row td{padding:8px 12px;border-bottom:1px solid rgba(48,54,61,.3);font-family:var(--mono);text-align:right;color:var(--text2);}
+  tr.fondo-row td:first-child{text-align:left;padding-left:36px;color:var(--text);font-family:var(--font);}
   tr.fondo-row:hover td{background:rgba(255,255,255,.03);}
-  tr.fondo-row td.num{font-family:var(--mono);text-align:right;color:var(--text);}
   tr.fondo-row.hidden{display:none;}
 
-  td.num{font-family:var(--mono);text-align:right;}
-  .delta-pos{color:var(--accent2);}.delta-neg{color:var(--accent3);}
+  .delta-pos{color:var(--accent2);font-weight:600;}
+  .delta-neg{color:var(--accent3);font-weight:600;}
   .moneda-pill{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;font-family:var(--mono);background:rgba(255,255,255,.06);}
 
-  .inner-tabs{display:flex;gap:2px;padding:12px 16px 0;border-bottom:1px solid var(--border);}
-  .inner-tab{background:none;border:none;color:var(--text2);font-size:12px;font-family:var(--font);padding:6px 12px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;margin-bottom:-1px;}
-  .inner-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-
-  /* ── ESPECIE SEARCH ── */
+  /* ESPECIE */
   .especie-search-wrap{position:relative;margin-bottom:20px;}
   .especie-search-big{width:100%;background:var(--surface);border:2px solid var(--border);color:var(--text);font-family:var(--font);font-size:18px;padding:16px 20px;border-radius:12px;outline:none;transition:border-color .2s;}
   .especie-search-big:focus{border-color:var(--accent);}
@@ -98,18 +89,15 @@
   .ac-item{padding:10px 16px;cursor:pointer;font-size:13px;}
   .ac-item:hover,.ac-item.selected{background:var(--surface2);}
   .ac-ticker{font-family:var(--mono);font-weight:700;color:var(--accent);}
-
   .loading-spinner{display:none;text-align:center;padding:40px;color:var(--text2);}
   .loading-spinner.show{display:block;}
   .spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:8px;}
   @keyframes spin{to{transform:rotate(360deg);}}
-
   .especie-result-header{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:16px;}
   .especie-ticker{font-size:28px;font-weight:800;font-family:var(--mono);color:var(--accent);}
   .especie-name{font-size:13px;color:var(--text2);margin-top:2px;}
   .no-result{text-align:center;padding:60px;color:var(--text2);}
   .no-result-icon{font-size:48px;margin-bottom:12px;}
-
   ::-webkit-scrollbar{width:6px;height:6px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -121,7 +109,6 @@
   <div class="logo"><div class="logo-dot"></div>Carteras FCI</div>
   <div class="header-tabs">
     <button class="tab-btn active" onclick="switchPanel('posicion')">Posición</button>
-    <button class="tab-btn" onclick="switchPanel('evolucion')">Evolución</button>
     <button class="tab-btn" onclick="switchPanel('especie')">Por Especie</button>
   </div>
   <div class="header-right"><span class="badge" id="badge-dates"></span></div>
@@ -161,43 +148,14 @@
       <div class="table-wrap">
         <table id="table-posicion">
           <thead><tr>
-            <th>Soc. Gerente / Fondo</th>
-            <th onclick="sortPosTable(1)">Moneda</th>
-            <th onclick="sortPosTable(2)">Monto $</th>
-            <th onclick="sortPosTable(3)">% del Total</th>
+            <th style="text-align:left">Soc. Gerente / Fondo</th>
+            <th onclick="sortPos(1)">Moneda</th>
+            <th onclick="sortPos(2)">Monto $</th>
+            <th onclick="sortPos(3)">% del Total</th>
           </tr></thead>
           <tbody></tbody>
         </table>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ EVOLUCIÓN ═══ -->
-<div id="panel-evolucion" class="panel">
-  <div class="filters-bar">
-    <div class="filter-group"><span class="filter-label">Soc. Gerente</span><select id="evo-sg" onchange="onEvoSgChange()"><option value="">Todas</option></select></div>
-    <div class="filter-group"><span class="filter-label">Fondo</span><select id="evo-fondo" onchange="renderEvolucion()"><option value="">Todos</option></select></div>
-    <div class="filter-group"><span class="filter-label">Moneda</span><select id="evo-moneda" onchange="renderEvolucion()"><option value="">Todas</option></select></div>
-    <div class="filter-sep"></div>
-    <button class="btn-reset" onclick="resetFilters('evolucion')">Limpiar</button>
-  </div>
-  <div class="kpi-row" id="kpi-evolucion"></div>
-  <div class="full-col">
-    <div class="card">
-      <div class="card-header"><span class="card-title">Evolución del Patrimonio</span></div>
-      <div class="inner-tabs">
-        <button class="inner-tab active" onclick="setEvoMode('sg')">Por Sociedad Gerente</button>
-        <button class="inner-tab" onclick="setEvoMode('fondo')">Por Fondo</button>
-        <button class="inner-tab" onclick="setEvoMode('total')">Total consolidado</button>
-      </div>
-      <div class="chart-wrap-tall"><canvas id="chart-evolucion"></canvas></div>
-    </div>
-  </div>
-  <div class="full-col">
-    <div class="card">
-      <div class="card-header"><span class="card-title">Variación entre períodos</span><span class="card-meta" id="table-evo-meta"></span></div>
-      <div class="table-wrap"><table id="table-evolucion"><thead></thead><tbody></tbody></table></div>
     </div>
   </div>
 </div>
@@ -226,10 +184,14 @@
 
     <div class="kpi-row" id="kpi-especie"></div>
 
-    <div class="full-col">
+    <div class="two-col">
       <div class="card">
-        <div class="card-header"><span class="card-title">Por Sociedad Gerente</span><span class="card-meta" id="pie-esp-meta"></span></div>
+        <div class="card-header"><span class="card-title">Distribución por SG</span><span class="card-meta" id="pie-esp-meta"></span></div>
         <div class="chart-wrap"><canvas id="chart-esp-sg"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Evolución total</span></div>
+        <div class="chart-wrap"><canvas id="chart-esp-evo"></canvas></div>
       </div>
     </div>
 
@@ -238,16 +200,7 @@
         <div class="card-header"><span class="card-title">Tenencia por Sociedad Gerente</span><span class="card-meta" id="table-esp-meta"></span></div>
         <div class="table-wrap">
           <table id="table-especie">
-            <thead><tr>
-              <th>Soc. Gerente / Fondo</th>
-              <th>Clase</th>
-              <th>Subclase</th>
-              <th>Moneda</th>
-              <th id="th-esp-0" onclick="sortEspTable(0)">—</th>
-              <th id="th-esp-1" onclick="sortEspTable(1)">—</th>
-              <th id="th-esp-2" onclick="sortEspTable(2)">—</th>
-              <th onclick="sortEspTable(3)">Δ %</th>
-            </tr></thead>
+            <thead id="esp-thead"></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -268,14 +221,12 @@
 <script>
 const PALETTE=['#58a6ff','#3fb950','#f78166','#d2a8ff','#ffa657','#79c0ff','#56d364','#ff7b72','#bc8cff','#ffb86c','#39d353','#f97583','#b392f0','#ffea7f','#2ea043'];
 let charts={};
-let evoMode='sg';
 let activosLoaded=false,activosLoading=false;
 let currentEspecie='',especieRows=[];
 let acSelected=-1;
 let expandedSGs={pos:{},esp:{}};
-let espSortCol=0,espSortDir=-1;
 let posSortCol=2,posSortDir=-1;
-let evoSortCol=0,evoSortDir=1;
+let espSortCol=2,espSortDir=-1; // sort by last date by default
 
 // ══ INIT ══
 function init(){
@@ -283,45 +234,34 @@ function init(){
   const sel=document.getElementById('pos-fecha');
   DATA.fechas.forEach((d,i)=>{const o=new Option(fmtDate(d),d);if(i===DATA.fechas.length-1)o.selected=true;sel.add(o);});
   const{sgs,monedas,fondos}=DATA.meta;
-  populate('pos-sg',sgs);populate('evo-sg',sgs);
-  populate('pos-moneda',monedas);populate('evo-moneda',monedas);
-  populate('pos-fondo',fondos);populate('evo-fondo',fondos);
-  renderPosicion();renderEvolucion();
+  populate('pos-sg',sgs);populate('pos-moneda',monedas);populate('pos-fondo',fondos);
+  renderPosicion();
 }
-function populate(id,items,blank=true){
+function populate(id,items){
   const s=document.getElementById(id);
-  while(s.options.length>0)s.remove(0);
-  if(blank)s.add(new Option(s.id.includes('fondo')?'Todos':'Todas',''));
+  while(s.options.length)s.remove(0);
+  s.add(new Option(id.includes('fondo')?'Todos':'Todas',''));
   items.forEach(v=>s.add(new Option(v,v)));
 }
 
-// ══ DEPENDENT FILTERS ══
+// ══ DEPENDENT FILTER ══
 function onPosSgChange(){
   const sg=document.getElementById('pos-sg').value;
   const fondos=sg?[...new Set(DATA.posicion.filter(r=>r['Sociedad Gerente']===sg).map(r=>r.Fondo))].sort():DATA.meta.fondos;
   populate('pos-fondo',fondos);
   renderPosicion();
 }
-function onEvoSgChange(){
-  const sg=document.getElementById('evo-sg').value;
-  const fondos=sg?[...new Set(DATA.posicion.filter(r=>r['Sociedad Gerente']===sg).map(r=>r.Fondo))].sort():DATA.meta.fondos;
-  populate('evo-fondo',fondos);
-  renderEvolucion();
-}
 function onEspSgChange(){
   if(!activosLoaded){renderEspecieResult();return;}
   const sg=document.getElementById('esp-sg').value;
   const A=ACTIVOS;
   let fondos;
-  if(sg){
-    const si=A.sgs.indexOf(sg);
-    const matchSet=new Set(especieRows.filter(r=>r[2]===si).map(r=>r[3]));
-    fondos=[...matchSet].map(i=>A.fos[i]).sort();
-  } else {
-    const foIdxs=[...new Set(especieRows.map(r=>r[3]))];
-    fondos=foIdxs.map(i=>A.fos[i]).sort();
-  }
-  populate('esp-fondo',fondos);
+  if(sg){const si=A.sgs.indexOf(sg);fondos=[...new Set(especieRows.filter(r=>r[2]===si).map(r=>r[3]))].map(i=>A.fos[i]).sort();}
+  else{fondos=[...new Set(especieRows.map(r=>r[3]))].map(i=>A.fos[i]).sort();}
+  const sel=document.getElementById('esp-fondo');
+  while(sel.options.length)sel.remove(0);
+  sel.add(new Option('Todos',''));
+  fondos.forEach(v=>sel.add(new Option(v,v)));
   renderEspecieResult();
 }
 
@@ -345,6 +285,7 @@ function renderPosicion(){
   const fondosCount=new Set(rows.map(r=>r.Fondo)).size;
   const sgsCount=new Set(rows.map(r=>r['Sociedad Gerente']).filter(Boolean)).size;
 
+  // KPI delta vs prev date
   const dates=DATA.fechas;
   const prevDate=dates[dates.indexOf(fecha)-1];
   let deltaHtml='';
@@ -362,6 +303,7 @@ function renderPosicion(){
     <div class="kpi-card"><div class="kpi-label">Fondos</div><div class="kpi-value">${fondosCount}</div></div>
     <div class="kpi-card"><div class="kpi-label">Soc. Gerentes</div><div class="kpi-value">${sgsCount||'—'}</div></div>`;
 
+  // Charts
   const bySG=groupSum(rows,'Sociedad Gerente');
   const sgE=Object.entries(bySG).sort((a,b)=>b[1]-a[1]).slice(0,12);
   document.getElementById('pie-meta').textContent=`${sgE.length} SG`;
@@ -371,21 +313,18 @@ function renderPosicion(){
   document.getElementById('bar-meta').textContent=`top 15 de ${Object.keys(byF).length}`;
   renderChart('chart-bar-fondos','bar',{labels:topF.map(e=>e[0].length>28?e[0].slice(0,27)+'…':e[0]),datasets:[{data:topF.map(e=>e[1]),backgroundColor:'rgba(88,166,255,.7)',borderRadius:4}]},{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${fmtBig(ctx.raw)}`}}},scales:{x:{ticks:{color:'#8b949e',callback:v=>fmtBig(v)},grid:{color:'#30363d'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{display:false}}}});
 
-  // Grouped table by SG
+  // Grouped table SG → Fondos
   const bySGFull={};
   rows.forEach(r=>{
     const sg=r['Sociedad Gerente']||'(sin SG)';
     if(!bySGFull[sg])bySGFull[sg]={total:0,fondos:{}};
     bySGFull[sg].total+=r['Monto $'];
-    const fo=r.Fondo;
-    if(!bySGFull[sg].fondos[fo])bySGFull[sg].fondos[fo]={total:0,moneda:r.Moneda};
+    const fo=r.Fondo,mo=r.Moneda;
+    if(!bySGFull[sg].fondos[fo])bySGFull[sg].fondos[fo]={total:0,mo};
     bySGFull[sg].fondos[fo].total+=r['Monto $'];
   });
 
-  let sgList=Object.entries(bySGFull);
-  if(posSortCol===2) sgList.sort((a,b)=>(a[1].total-b[1].total)*posSortDir);
-  else sgList.sort((a,b)=>a[0].localeCompare(b[0])*posSortDir);
-
+  let sgList=Object.entries(bySGFull).sort((a,b)=>(b[1].total-a[1].total)*posSortDir);
   document.getElementById('table-pos-meta').textContent=`${sgList.length} SG · ${fondosCount} fondos`;
 
   const tbody=document.querySelector('#table-posicion tbody');
@@ -396,16 +335,16 @@ function renderPosicion(){
     html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
       <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
       <td></td>
-      <td class="num">${fmtNum(data.total)}</td>
-      <td class="num">${pct}%</td>
+      <td>${fmtNum(data.total)}</td>
+      <td>${pct}%</td>
     </tr>`;
     Object.entries(data.fondos).sort((a,b)=>b[1].total-a[1].total).forEach(([fo,fd])=>{
       const fpct=(fd.total/total*100).toFixed(2);
       html+=`<tr class="fondo-row ${isExp?'':'hidden'}">
         <td>${fo}</td>
-        <td><span class="moneda-pill">${fd.moneda}</span></td>
-        <td class="num">${fmtNum(fd.total)}</td>
-        <td class="num">${fpct}%</td>
+        <td><span class="moneda-pill">${fd.mo}</span></td>
+        <td>${fmtNum(fd.total)}</td>
+        <td>${fpct}%</td>
       </tr>`;
     });
   });
@@ -414,56 +353,12 @@ function renderPosicion(){
 
 function toggleSG(panel,sg){
   expandedSGs[panel][sg]=!expandedSGs[panel][sg];
-  if(panel==='pos') renderPosicion();
+  if(panel==='pos')renderPosicion();
   else renderEspecieResult();
 }
-function sortPosTable(col){posSortDir=posSortCol===col?posSortDir*-1:1;posSortCol=col;renderPosicion();}
+function sortPos(col){posSortDir=posSortCol===col?posSortDir*-1:-1;posSortCol=col;renderPosicion();}
 
-// ══ EVOLUCIÓN ══
-function getEvoRows(){
-  const sg=document.getElementById('evo-sg').value;
-  const fondo=document.getElementById('evo-fondo').value;
-  const moneda=document.getElementById('evo-moneda').value;
-  let rows=[...DATA.posicion];
-  if(sg) rows=rows.filter(r=>r['Sociedad Gerente']===sg);
-  if(fondo) rows=rows.filter(r=>r.Fondo===fondo);
-  if(moneda) rows=rows.filter(r=>r.Moneda===moneda);
-  return rows;
-}
-function renderEvolucion(){
-  const rows=getEvoRows();const dates=DATA.fechas;
-  const last=dates[dates.length-1],first=dates[0];
-  const lT=rows.filter(r=>r.Fecha===last).reduce((s,r)=>s+r['Monto $'],0);
-  const fT=rows.filter(r=>r.Fecha===first).reduce((s,r)=>s+r['Monto $'],0);
-  const d=fT>0?(lT-fT)/fT*100:null;
-  document.getElementById('kpi-evolucion').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Último (${fmtDate(last)})</div><div class="kpi-value">${fmtBig(lT)}</div>${d!==null?`<span class="kpi-delta ${d>=0?'up':'dn'}">${d>=0?'+':''}${d.toFixed(2)}% período</span>`:''}</div>
-    <div class="kpi-card"><div class="kpi-label">Primero (${fmtDate(first)})</div><div class="kpi-value">${fmtBig(fT)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Variación absoluta</div><div class="kpi-value" style="color:${lT-fT>=0?'var(--accent2)':'var(--accent3)'}">${fmtBig(lT-fT)}</div></div>`;
-  renderEvoChart(rows,dates);renderEvoTable(rows,dates);
-}
-function setEvoMode(m){evoMode=m;document.querySelectorAll('.inner-tab').forEach((t,i)=>t.classList.toggle('active',['sg','fondo','total'][i]===m));renderEvoChart(getEvoRows(),DATA.fechas);}
-function renderEvoChart(rows,dates){
-  const lbl=dates.map(fmtDate);
-  if(evoMode==='total'){renderChart('chart-evolucion','line',{labels:lbl,datasets:[{label:'Total',data:dates.map(d=>rows.filter(r=>r.Fecha===d).reduce((s,r)=>s+r['Monto $'],0)),borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.1)',fill:true,tension:.3,pointRadius:5}]},lineOpts());return;}
-  if(evoMode==='sg'){const sgs=[...new Set(rows.map(r=>r['Sociedad Gerente']).filter(Boolean))].sort();renderChart('chart-evolucion','line',{labels:lbl,datasets:sgs.slice(0,12).map((sg,i)=>({label:sg,data:dates.map(d=>rows.filter(r=>r.Fecha===d&&r['Sociedad Gerente']===sg).reduce((s,r)=>s+r['Monto $'],0)),borderColor:PALETTE[i%PALETTE.length],backgroundColor:'transparent',fill:false,tension:.3,pointRadius:4}))},lineOpts());return;}
-  if(evoMode==='fondo'){const ld=dates[dates.length-1];const fondos=[...new Set(rows.map(r=>r.Fondo))].map(f=>({f,v:rows.filter(r=>r.Fondo===f&&r.Fecha===ld).reduce((s,r)=>s+r['Monto $'],0)})).sort((a,b)=>b.v-a.v).slice(0,12).map(x=>x.f);renderChart('chart-evolucion','line',{labels:lbl,datasets:fondos.map((f,i)=>({label:f.length>30?f.slice(0,29)+'…':f,data:dates.map(d=>rows.filter(r=>r.Fondo===f&&r.Fecha===d).reduce((s,r)=>s+r['Monto $'],0)),borderColor:PALETTE[i%PALETTE.length],backgroundColor:'transparent',fill:false,tension:.3,pointRadius:4}))},lineOpts());}
-}
-function renderEvoTable(rows,dates){
-  const evoFondo=document.getElementById('evo-fondo').value;
-  const key=evoFondo?'Fondo':'Sociedad Gerente';
-  const groups=[...new Set(rows.map(r=>r[key]).filter(v=>v!=null))].sort();
-  const thead=document.querySelector('#table-evolucion thead');
-  const tbody=document.querySelector('#table-evolucion tbody');
-  thead.innerHTML=`<tr><th onclick="sortEvoTable(0)">${evoFondo?'Fondo':'Soc. Gerente'}</th>${dates.map((d,i)=>`<th onclick="sortEvoTable(${i+1})">${fmtDate(d)}</th>`).join('')}<th onclick="sortEvoTable(${dates.length+1})">Δ Abs.</th><th onclick="sortEvoTable(${dates.length+2})">Δ %</th></tr>`;
-  let td=groups.map(g=>{const vals=dates.map(d=>rows.filter(r=>r[key]===g&&r.Fecha===d).reduce((s,r)=>s+r['Monto $'],0));const delta=vals[vals.length-1]-vals[0];const pct=vals[0]>0?delta/vals[0]*100:null;return{g,vals,delta,pct};});
-  td.sort((a,b)=>{if(evoSortCol===0)return String(a.g).localeCompare(String(b.g))*evoSortDir;if(evoSortCol<=dates.length)return(a.vals[evoSortCol-1]-b.vals[evoSortCol-1])*evoSortDir;if(evoSortCol===dates.length+1)return(a.delta-b.delta)*evoSortDir;return((a.pct||0)-(b.pct||0))*evoSortDir;});
-  document.getElementById('table-evo-meta').textContent=`${td.length} grupos`;
-  tbody.innerHTML=td.map(({g,vals,delta,pct})=>`<tr><td style="font-weight:600;color:var(--accent)">${g||'—'}</td>${vals.map(v=>`<td class="num">${fmtNum(v)}</td>`).join('')}<td class="num ${delta>=0?'delta-pos':'delta-neg'}">${delta>=0?'+':''}${fmtNum(delta)}</td><td class="num">${pct!==null?`<span class="${pct>=0?'delta-pos':'delta-neg'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`:'—'}</td></tr>`).join('');
-}
-function sortEvoTable(col){evoSortDir=evoSortCol===col?evoSortDir*-1:1;evoSortCol=col;renderEvoTable(getEvoRows(),DATA.fechas);}
-
-// ══ POR ESPECIE ══
+// ══ ESPECIE ══
 function loadActivos(){
   return new Promise((resolve,reject)=>{
     if(activosLoaded){resolve();return;}
@@ -508,7 +403,10 @@ async function selectEspecie(val){
 
   const q=currentEspecie;
   const A=ACTIVOS;
-  const matchEkIdxs=A.eks.reduce((acc,ek,i)=>{if(ek.toUpperCase().includes(q)||(A.lookup[i]&&A.lookup[i][0]||'').toUpperCase().includes(q))acc.push(i);return acc;},[]);
+  const matchEkIdxs=A.eks.reduce((acc,ek,i)=>{
+    if(ek.toUpperCase().includes(q)||(A.lookup[i]&&A.lookup[i][0]||'').toUpperCase().includes(q))acc.push(i);
+    return acc;
+  },[]);
   if(!matchEkIdxs.length){document.getElementById('especie-empty').style.display='block';return;}
 
   const matchSet=new Set(matchEkIdxs);
@@ -522,20 +420,20 @@ async function selectEspecie(val){
   const subclases=new Set(matchEkIdxs.map(i=>(A.lookup[i]||['','',''])[2]).filter(Boolean));
   document.getElementById('especie-header').innerHTML=`<div class="especie-ticker">${ticker}</div><div><div class="especie-name">${label}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">${[...clases].join(', ')||'—'} · ${[...subclases].join(', ')||'—'}</div></div>`;
 
-  // Populate esp-sg
+  // Populate filters
   const sgIdxs=[...new Set(especieRows.map(r=>r[2]))].sort((a,b)=>A.sgs[a].localeCompare(A.sgs[b]));
-  const espSgs=sgIdxs.map(i=>A.sgs[i]);
-  populate('esp-sg',espSgs);
-  // Populate esp-fondo
+  const sel=document.getElementById('esp-sg');
+  while(sel.options.length)sel.remove(0);
+  sel.add(new Option('Todas',''));
+  sgIdxs.forEach(i=>sel.add(new Option(A.sgs[i],A.sgs[i])));
   const foIdxs=[...new Set(especieRows.map(r=>r[3]))].sort((a,b)=>A.fos[a].localeCompare(A.fos[b]));
-  populate('esp-fondo',foIdxs.map(i=>A.fos[i]));
+  const selF=document.getElementById('esp-fondo');
+  while(selF.options.length)selF.remove(0);
+  selF.add(new Option('Todos',''));
+  foIdxs.forEach(i=>selF.add(new Option(A.fos[i],A.fos[i])));
 
   expandedSGs.esp={};
   document.getElementById('especie-content').style.display='block';
-
-  // Update date headers
-  DATA.fechas.forEach((d,i)=>document.getElementById(`th-esp-${i}`).textContent=fmtDate(d));
-
   renderEspecieResult();
 }
 
@@ -551,7 +449,8 @@ function renderEspecieResult(){
   if(moFil){const mi=A.mos.indexOf(moFil);rows=rows.filter(r=>r[4]===mi);}
 
   const dates=DATA.fechas;
-  const lastFi=dates.length-1;
+  const n=dates.length;
+  const lastFi=n-1;
   const lastRows=rows.filter(r=>r[0]===lastFi);
   const totalLast=lastRows.reduce((s,r)=>s+r[5],0);
   const fondosCount=new Set(lastRows.map(r=>r[3])).size;
@@ -569,63 +468,94 @@ function renderEspecieResult(){
   document.getElementById('pie-esp-meta').textContent=`${sgE.length} SG`;
   renderChart('chart-esp-sg','doughnut',{labels:sgE.map(e=>e[0]),datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
 
-  // Grouped table: SG → Fondos
+  // Evo total
+  const evoData=dates.map((_,fi)=>rows.filter(r=>r[0]===fi).reduce((s,r)=>s+r[5],0));
+  renderChart('chart-esp-evo','line',{labels:dates.map(fmtDate),datasets:[{label:currentEspecie,data:evoData,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.1)',fill:true,tension:.3,pointRadius:5}]},lineOpts());
+
+  // Build header: Nombre | d0 | Δ% | d1 | Δ% | d2 | Δ% total
+  // Columns: col 0=name, col 1..n=date vals, col n+1..(2n-1)=deltas between consecutive, col 2n=total delta
+  const thead=document.getElementById('esp-thead');
+  let thHtml=`<tr><th style="text-align:left;cursor:default">Soc. Gerente / Fondo</th>`;
+  dates.forEach((d,i)=>{
+    thHtml+=`<th onclick="sortEsp(${i+1})">${fmtDate(d)}</th>`;
+    if(i<n-1) thHtml+=`<th style="cursor:default;color:var(--text3)">Δ ${fmtDateShort(dates[i])}→${fmtDateShort(dates[i+1])}</th>`;
+  });
+  thHtml+=`<th onclick="sortEsp(${n+1})">Δ Total</th></tr>`;
+  thead.innerHTML=thHtml;
+
+  // Group by SG
   const sgGroups={};
   rows.forEach(r=>{
     const sg=A.sgs[r[2]]||'(sin SG)';
     const fo=A.fos[r[3]];
-    const mo=A.mos[r[4]];
-    const ei=r[1];
-    const lkp=A.lookup[ei]||['','',''];
     if(!sgGroups[sg])sgGroups[sg]={vals:dates.map(()=>0),fondos:{}};
     sgGroups[sg].vals[r[0]]+=r[5];
-    if(!sgGroups[sg].fondos[fo])sgGroups[sg].fondos[fo]={vals:dates.map(()=>0),mo,cl:lkp[1],sc:lkp[2]};
+    if(!sgGroups[sg].fondos[fo])sgGroups[sg].fondos[fo]={vals:dates.map(()=>0)};
     sgGroups[sg].fondos[fo].vals[r[0]]+=r[5];
   });
 
-  let sgList=Object.entries(sgGroups).sort((a,b)=>b[1].vals[lastFi]-a[1].vals[lastFi]);
+  // Sort SGs
+  let sgList=Object.entries(sgGroups);
+  const sc=espSortCol;
+  if(sc>=1&&sc<=n) sgList.sort((a,b)=>(b[1].vals[sc-1]-a[1].vals[sc-1])*espSortDir);
+  else if(sc===n+1) sgList.sort((a,b)=>{
+    const da=a[1].vals[0]>0?(a[1].vals[n-1]-a[1].vals[0])/a[1].vals[0]*100:0;
+    const db=b[1].vals[0]>0?(b[1].vals[n-1]-b[1].vals[0])/b[1].vals[0]*100:0;
+    return(db-da)*espSortDir;
+  });
+  else sgList.sort((a,b)=>a[0].localeCompare(b[0])*espSortDir);
+
   document.getElementById('table-esp-meta').textContent=`${sgList.length} SG · ${fondosCount} fondos`;
+
+  function deltaHtml(v0,v1){
+    if(!v0)return`<td style="color:var(--text3)">—</td>`;
+    const d=(v1-v0)/v0*100;
+    return`<td class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${d.toFixed(2)}%</td>`;
+  }
+  function totalDelta(vals){
+    if(!vals[0])return`<td style="color:var(--text3)">—</td>`;
+    const d=(vals[n-1]-vals[0])/vals[0]*100;
+    return`<td class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${d.toFixed(2)}%</td>`;
+  }
 
   const tbody=document.querySelector('#table-especie tbody');
   let html='';
   sgList.forEach(([sg,gd])=>{
-    const first=gd.vals[0],last2=gd.vals[lastFi];
-    const pct=first>0?(last2-first)/first*100:null;
     const isExp=!!expandedSGs.esp[sg];
     html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('esp','${esc(sg)}')">
-      <td class="sg-name" colspan="4"><span class="expand-icon">▶</span>${sg}</td>
-      ${dates.map((_,i)=>`<td class="num">${fmtNum(gd.vals[i])}</td>`).join('')}
-      <td class="num">${pct!==null?`<span class="${pct>=0?'delta-pos':'delta-neg'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`:'—'}</td>
-    </tr>`;
+      <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>`;
+    gd.vals.forEach((v,i)=>{
+      html+=`<td>${fmtNum(v)}</td>`;
+      if(i<n-1) html+=deltaHtml(gd.vals[i],gd.vals[i+1]);
+    });
+    html+=totalDelta(gd.vals)+'</tr>';
+
+    // Fondo rows
     Object.entries(gd.fondos).sort((a,b)=>b[1].vals[lastFi]-a[1].vals[lastFi]).forEach(([fo,fd])=>{
-      const fp=fd.vals[0]>0?(fd.vals[lastFi]-fd.vals[0])/fd.vals[0]*100:null;
-      html+=`<tr class="fondo-row ${isExp?'':'hidden'}">
-        <td>${fo}</td>
-        <td style="color:var(--text2)">${fd.cl||'—'}</td>
-        <td style="color:var(--text2)">${fd.sc||'—'}</td>
-        <td><span class="moneda-pill">${fd.mo}</span></td>
-        ${dates.map((_,i)=>`<td class="num">${fd.vals[i]?fmtNum(fd.vals[i]):'—'}</td>`).join('')}
-        <td class="num">${fp!==null?`<span class="${fp>=0?'delta-pos':'delta-neg'}">${fp>=0?'+':''}${fp.toFixed(2)}%</span>`:'—'}</td>
-      </tr>`;
+      html+=`<tr class="fondo-row ${isExp?'':'hidden'}"><td>${fo}</td>`;
+      fd.vals.forEach((v,i)=>{
+        html+=`<td>${v?fmtNum(v):'—'}</td>`;
+        if(i<n-1) html+=deltaHtml(fd.vals[i],fd.vals[i+1]);
+      });
+      html+=totalDelta(fd.vals)+'</tr>';
     });
   });
   tbody.innerHTML=html;
 }
 
-function sortEspTable(col){espSortDir=espSortCol===col?espSortDir*-1:1;espSortCol=col;renderEspecieResult();}
+function sortEsp(col){espSortDir=espSortCol===col?espSortDir*-1:-1;espSortCol=col;renderEspecieResult();}
 
-// ══ PANEL SWITCH ══
+// ══ PANEL ══
 function switchPanel(p){
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+p).classList.add('active');
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['posicion','evolucion','especie'][i]===p));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['posicion','especie'][i]===p));
 }
 
 // ══ RESET ══
 function resetFilters(p){
   if(p==='posicion'){['pos-sg','pos-moneda'].forEach(id=>document.getElementById(id).value='');populate('pos-fondo',DATA.meta.fondos);renderPosicion();}
-  else if(p==='evolucion'){['evo-sg','evo-moneda'].forEach(id=>document.getElementById(id).value='');populate('evo-fondo',DATA.meta.fondos);renderEvolucion();}
-  else if(p==='especie'){document.getElementById('esp-sg').value='';document.getElementById('esp-moneda').value='';if(currentEspecie){const A=ACTIVOS;const foIdxs=[...new Set(especieRows.map(r=>r[3]))];populate('esp-fondo',foIdxs.map(i=>A.fos[i]).sort());}renderEspecieResult();}
+  else if(p==='especie'){document.getElementById('esp-sg').value='';document.getElementById('esp-moneda').value='';if(currentEspecie&&activosLoaded){const A=ACTIVOS;const foIdxs=[...new Set(especieRows.map(r=>r[3]))];const sel=document.getElementById('esp-fondo');while(sel.options.length)sel.remove(0);sel.add(new Option('Todos',''));foIdxs.map(i=>A.fos[i]).sort().forEach(v=>sel.add(new Option(v,v)));}renderEspecieResult();}
 }
 
 // ══ CHARTS ══
@@ -637,6 +567,7 @@ function groupSum(rows,key){return rows.reduce((acc,r)=>{const k=r[key]||'';acc[
 function fmtNum(n){if(!n&&n!==0)return'—';if(Math.abs(n)>=1e12)return(n/1e12).toFixed(2)+' T';if(Math.abs(n)>=1e9)return(n/1e9).toFixed(2)+' B';if(Math.abs(n)>=1e6)return(n/1e6).toFixed(2)+' M';return n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:0});}
 function fmtBig(n){if(!n&&n!==0)return'—';if(Math.abs(n)>=1e12)return(n/1e12).toFixed(2)+' T';if(Math.abs(n)>=1e9)return(n/1e9).toFixed(1)+' B';if(Math.abs(n)>=1e6)return(n/1e6).toFixed(1)+' M';return n.toLocaleString('es-AR',{maximumFractionDigits:0});}
 function fmtDate(d){const[y,m,day]=d.split('-');return`${day} ${['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][+m]} ${y}`;}
+function fmtDateShort(d){const[,m,day]=d.split('-');return`${day}/${m}`;}
 function esc(s){return(s||'').replace(/'/g,"\\'");}
 
 document.addEventListener('click',e=>{if(!e.target.closest('.especie-search-wrap'))document.getElementById('ac-list').classList.remove('show');});
