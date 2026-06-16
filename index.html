@@ -441,70 +441,77 @@ async function selectEspecie(val){
 
   document.getElementById('especie-loading').classList.remove('show');
 
-  // Search in ACTIVOS (columnar format: [fi, ek, al, cl, sc, sg, fo, mo, m])
+  // ACTIVOS format: {eks, sgs, fos, mos, lookup, rows}
+  // rows: [fi, ei, si, foi, moi, m]
   const q=currentEspecie;
-  // fi=0,ek=1,al=2,cl=3,sc=4,sg=5,fo=6,mo=7,m=8
-  const matches=ACTIVOS.filter(r=>String(r[1]).toUpperCase().includes(q)||String(r[2]).toUpperCase().includes(q));
+  const A=ACTIVOS;
+  // Find matching ek indices
+  const matchEkIdxs=A.eks.reduce((acc,ek,i)=>{if(ek.toUpperCase().includes(q)||((A.lookup[i]||[''])[0]||'').toUpperCase().includes(q))acc.push(i);return acc;},[]);
 
-  if(!matches.length){
+  if(!matchEkIdxs.length){
     document.getElementById('especie-empty').style.display='block';
     return;
   }
 
-  especieRows=matches;
+  const matchSet=new Set(matchEkIdxs);
+  especieRows=A.rows.filter(r=>matchSet.has(r[1]));
 
-  // Get label from first match
-  const label=matches[0][2]||matches[0][1];
-  document.getElementById('especie-header').innerHTML=`<div class="especie-ticker">${matches[0][1]}</div><div><div class="especie-name">${label}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">${new Set(matches.map(r=>r[3])).size} clase(s) · ${new Set(matches.map(r=>r[4])).size} subclase(s)</div></div>`;
+  const firstEkIdx=matchEkIdxs[0];
+  const lkp=A.lookup[firstEkIdx]||['','',''];
+  const ticker=A.eks[firstEkIdx];
+  const label=lkp[0]||ticker;
+  const clases=new Set(matchEkIdxs.map(i=>(A.lookup[i]||['','',''])[1]).filter(Boolean));
+  const subclases=new Set(matchEkIdxs.map(i=>(A.lookup[i]||['','',''])[2]).filter(Boolean));
+
+  document.getElementById('especie-header').innerHTML=`<div class="especie-ticker">${ticker}</div><div><div class="especie-name">${label}</div><div style="font-size:11px;color:var(--text3);margin-top:4px">${[...clases].join(', ')||'—'} · ${[...subclases].join(', ')||'—'}</div></div>`;
 
   document.getElementById('especie-content').style.display='block';
   renderEspecieResult();
 }
 
 function renderEspecieResult(){
-  const sg=document.getElementById('esp-sg').value;
-  const moneda=document.getElementById('esp-moneda').value;
+  const sgFil=document.getElementById('esp-sg').value;
+  const moFil=document.getElementById('esp-moneda').value;
+  const A=ACTIVOS;
   let rows=especieRows;
-  if(sg) rows=rows.filter(r=>r[5]===sg);
-  if(moneda) rows=rows.filter(r=>r[7]===moneda);
+  if(sgFil){const si=A.sgs.indexOf(sgFil);rows=rows.filter(r=>r[2]===si);}
+  if(moFil){const mi=A.mos.indexOf(moFil);rows=rows.filter(r=>r[4]===mi);}
 
   const dates=DATA.fechas;
-  const dateMap={};dates.forEach((d,i)=>dateMap[i]=d);
-
-  // KPIs: total por última fecha
   const lastFi=dates.length-1;
   const lastRows=rows.filter(r=>r[0]===lastFi);
-  const totalLast=lastRows.reduce((s,r)=>s+r[8],0);
-  const fondosCount=new Set(lastRows.map(r=>r[6])).size;
-  const sgsCount=new Set(lastRows.map(r=>r[5]).filter(Boolean)).size;
+  const totalLast=lastRows.reduce((s,r)=>s+r[5],0);
+  const fondosCount=new Set(lastRows.map(r=>r[3])).size;
+  const sgsCount=new Set(lastRows.map(r=>r[2])).size;
 
   document.getElementById('kpi-especie').innerHTML=`
     <div class="kpi-card"><div class="kpi-label">Tenencia Total (${fmtDate(dates[lastFi])})</div><div class="kpi-value">${fmtBig(totalLast)}</div></div>
     <div class="kpi-card"><div class="kpi-label">Fondos que la tienen</div><div class="kpi-value">${fondosCount}</div></div>
     <div class="kpi-card"><div class="kpi-label">Soc. Gerentes</div><div class="kpi-value">${sgsCount}</div></div>`;
 
-  // Pie por SG (última fecha)
+  // Pie SG última fecha
   const bySG={};
-  lastRows.forEach(r=>{const k=r[5]||'(sin SG)';bySG[k]=(bySG[k]||0)+r[8];});
+  lastRows.forEach(r=>{const k=A.sgs[r[2]]||'(sin SG)';bySG[k]=(bySG[k]||0)+r[5];});
   const sgE=Object.entries(bySG).sort((a,b)=>b[1]-a[1]).slice(0,12);
   renderChart('chart-esp-sg','doughnut',{labels:sgE.map(e=>e[0]),datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
 
-  // Evolución total
-  const evoData=dates.map((_,fi)=>rows.filter(r=>r[0]===fi).reduce((s,r)=>s+r[8],0));
+  // Evolución
+  const evoData=dates.map((_,fi)=>rows.filter(r=>r[0]===fi).reduce((s,r)=>s+r[5],0));
   renderChart('chart-esp-evo','line',{labels:dates.map(fmtDate),datasets:[{label:currentEspecie,data:evoData,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.1)',fill:true,tension:.3,pointRadius:5}]},lineOpts());
 
-  // Tabla: una fila por Fondo, columnas = fechas
-  const fondos=[...new Set(rows.map(r=>r[6]))].sort();
-  let tableData=fondos.map(fo=>{
-    const fr=rows.filter(r=>r[6]===fo);
-    const sg=fr[0]?fr[0][5]:'';
-    const cl=fr[0]?fr[0][3]:'';
-    const sc=fr[0]?fr[0][4]:'';
-    const mo=fr[0]?fr[0][7]:'';
-    const vals=dates.map((_,fi)=>fr.filter(r=>r[0]===fi).reduce((s,r)=>s+r[8],0));
+  // Tabla por fondo
+  const foIdxs=[...new Set(rows.map(r=>r[3]))].sort((a,b)=>A.fos[a].localeCompare(A.fos[b]));
+  let tableData=foIdxs.map(foi=>{
+    const fr=rows.filter(r=>r[3]===foi);
+    const sg=A.sgs[fr[0]?fr[0][2]:0]||'';
+    const mo=A.mos[fr[0]?fr[0][4]:0]||'';
+    const ei=fr[0]?fr[0][1]:0;
+    const lkp=A.lookup[ei]||['','',''];
+    const cl=lkp[1]||'',sc=lkp[2]||'';
+    const vals=dates.map((_,fi)=>fr.filter(r=>r[0]===fi).reduce((s,r)=>s+r[5],0));
     const first=vals[0],last=vals[vals.length-1];
     const pct=first>0?(last-first)/first*100:null;
-    return{fo,sg,cl,sc,mo,vals,pct};
+    return{fo:A.fos[foi],sg,cl,sc,mo,vals,pct};
   });
 
   const{col,dir}=sortState.esp;
@@ -519,8 +526,6 @@ function renderEspecieResult(){
   });
 
   document.getElementById('table-esp-meta').textContent=`${tableData.length} fondos`;
-
-  // Update thead with actual dates
   document.querySelector('#table-especie thead tr').innerHTML=`
     <th onclick="sortEspTable(0)">Soc. Gerente</th>
     <th onclick="sortEspTable(1)">Fondo</th>
@@ -529,13 +534,10 @@ function renderEspecieResult(){
     <th onclick="sortEspTable(4)">Mon.</th>
     ${dates.map((d,i)=>`<th onclick="sortEspTable(${5+i})">${fmtDate(d)}</th>`).join('')}
     <th onclick="sortEspTable(${5+dates.length})">Δ %</th>`;
-
   document.querySelector('#table-especie tbody').innerHTML=tableData.map(({fo,sg,cl,sc,mo,vals,pct})=>`
     <tr>
-      <td class="sg-cell">${sg||'—'}</td>
-      <td>${fo}</td>
-      <td style="color:var(--text2)">${cl||'—'}</td>
-      <td style="color:var(--text2)">${sc||'—'}</td>
+      <td class="sg-cell">${sg||'—'}</td><td>${fo}</td>
+      <td style="color:var(--text2)">${cl||'—'}</td><td style="color:var(--text2)">${sc||'—'}</td>
       <td><span class="moneda-pill">${mo}</span></td>
       ${vals.map(v=>`<td class="num">${v?fmtNum(v):'—'}</td>`).join('')}
       <td class="num">${pct!==null?`<span class="${pct>=0?'delta-pos':'delta-neg'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`:'—'}</td>
