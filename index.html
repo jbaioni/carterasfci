@@ -135,7 +135,7 @@
     <div class="filter-sep"></div>
     <div class="filter-group" style="position:relative">
       <span class="filter-label">Especie / Activo</span>
-      <input type="text" id="pos-especie-input" placeholder="Buscar activo..." oninput="onPosEspecieInput()" onkeydown="onPosEspecieKey(event)" autocomplete="off" style="min-width:200px">
+      <input type="text" id="pos-especie-input" placeholder="Buscar activo..." oninput="lazyLoadAndSearch()" onkeydown="onPosEspecieKey(event)" autocomplete="off" style="min-width:200px">
       <div class="autocomplete-list" id="pos-ac-list"></div>
     </div>
     <div class="filter-sep"></div>
@@ -626,13 +626,43 @@ function esc(s){return(s||'').replace(/'/g,"\\'");}
 // ══ POSICIÓN ESPECIE FILTER ══
 let posEspecieFondos = null; // Set of fondo names that have the selected especie, or null = no filter
 
+function lazyLoadAndSearch(){
+  // Load activos in background for better autocomplete, then search
+  if(!activosLoaded && !activosLoading){
+    loadActivos().then(()=>onPosEspecieInput()).catch(()=>onPosEspecieInput());
+  }
+  onPosEspecieInput();
+}
 function onPosEspecieInput(){
   const q = document.getElementById('pos-especie-input').value.trim().toUpperCase();
   const list = document.getElementById('pos-ac-list');
   if(q.length < 2){ list.classList.remove('show'); return; }
-  const matches = DATA.meta.especies.filter(e => e.toUpperCase().includes(q)).slice(0, 20);
+
+  // If activos already loaded, search full index. Otherwise use short species list.
+  let matches;
+  if(activosLoaded){
+    const A = ACTIVOS;
+    const seen = new Set();
+    matches = [];
+    for(let i=0; i<A.eks.length && matches.length<20; i++){
+      const ek = A.eks[i];
+      const al = A.lookup[i] ? (A.lookup[i][0]||'') : '';
+      const sc = A.lookup[i] ? (A.lookup[i][2]||'') : '';
+      // Match against ticker, label or subclase
+      const hit = ek.toUpperCase().includes(q) || al.toUpperCase().includes(q) || sc.toUpperCase().includes(q);
+      if(hit){
+        // Show the activo label as the display, but search by ek
+        const display = al && al.length<=60 ? al : ek;
+        if(!seen.has(display)){ seen.add(display); matches.push({display, ek}); }
+      }
+    }
+  } else {
+    // Fallback to short tickers before activos loaded
+    matches = DATA.meta.especies.filter(e => e.toUpperCase().includes(q)).slice(0,20).map(e=>({display:e,ek:e}));
+  }
+
   if(!matches.length){ list.classList.remove('show'); return; }
-  list.innerHTML = matches.map((e,i) => `<div class="ac-item" data-val="${e}" onmousedown="selectPosEspecie('${esc(e)}')" onmouseover=""><span class="ac-ticker">${e}</span></div>`).join('');
+  list.innerHTML = matches.map((m,i) => `<div class="ac-item" data-val="${esc(m.ek)}" data-display="${esc(m.display)}" onmousedown="selectPosEspecie('${esc(m.ek)}','${esc(m.display)}')" onmouseover=""><span class="ac-ticker">${m.display}</span></div>`).join('');
   list.classList.add('show');
 }
 
@@ -643,15 +673,15 @@ function onPosEspecieKey(e){
   else if(e.key==='ArrowUp'){ const prev = Math.max((parseInt(list.dataset.sel||'0')-1), 0); list.dataset.sel=prev; items.forEach((el,i)=>el.classList.toggle('selected',i===prev)); e.preventDefault(); }
   else if(e.key==='Enter'){
     const sel = parseInt(list.dataset.sel||'-1');
-    if(sel>=0 && items[sel]) selectPosEspecie(items[sel].dataset.val);
-    else { const q=document.getElementById('pos-especie-input').value.trim(); if(q.length>=2) selectPosEspecie(q.toUpperCase()); }
+    if(sel>=0 && items[sel]) selectPosEspecie(items[sel].dataset.val, items[sel].dataset.display);
+    else { const q=document.getElementById('pos-especie-input').value.trim(); if(q.length>=2) selectPosEspecie(q.toUpperCase(), q); }
     list.classList.remove('show');
   }
   else if(e.key==='Escape'){ list.classList.remove('show'); }
 }
 
-async function selectPosEspecie(val){
-  document.getElementById('pos-especie-input').value = val;
+async function selectPosEspecie(val, display){
+  document.getElementById('pos-especie-input').value = display || val;
   document.getElementById('pos-ac-list').classList.remove('show');
   document.getElementById('pos-especie-loading').style.display = 'block';
 
@@ -666,14 +696,16 @@ async function selectPosEspecie(val){
   const fecha = document.getElementById('pos-fecha').value;
   const fi = DATA.fechas.indexOf(fecha);
 
-  // Find ek indices that match the query
-  const matchEkIdxs = A.eks.reduce((acc,ek,i) => {
-    if(ek.toUpperCase().includes(q) || (A.lookup[i] && (A.lookup[i][0]||'').toUpperCase().includes(q))) acc.push(i);
-    return acc;
-  }, []);
+  // Find ek indices that match: exact ek OR label OR subclase contains query
+  const matchEkIdxs = [];
+  for(let i=0; i<A.eks.length; i++){
+    const ek = A.eks[i].toUpperCase();
+    const al = A.lookup[i] ? (A.lookup[i][0]||'').toUpperCase() : '';
+    const sc = A.lookup[i] ? (A.lookup[i][2]||'').toUpperCase() : '';
+    if(ek.includes(q) || al.includes(q) || sc.includes(q)) matchEkIdxs.push(i);
+  }
 
   const matchSet = new Set(matchEkIdxs);
-  // Get fondo indices that have this especie at this fecha
   const foIdxs = new Set(A.rows.filter(r => r[0]===fi && matchSet.has(r[1])).map(r => r[3]));
   posEspecieFondos = new Set([...foIdxs].map(i => A.fos[i]));
 
