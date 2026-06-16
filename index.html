@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carteras FCI · Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2230;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #f78166;
+    --accent4: #d2a8ff;
+    --accent5: #ffa657;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #484f58;
+    --radius: 8px;
+    --font: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .header-tabs { display: flex; gap: 4px; margin-left: 16px; }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 13px;
+    font-family: var(--font);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .tab-btn:hover { background: var(--surface2); color: var(--text); }
+  .tab-btn.active { background: var(--surface2); color: var(--accent); font-weight: 600; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .badge {
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-family: var(--font-mono);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── FILTERS BAR ── */
+  .filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 3px; }
+  .filter-label { font-size: 10px; text-transform: uppercase; letter-spacing: .8px; color: var(--text3); font-weight: 600; }
+  select, input[type=text] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    outline: none;
+    min-width: 160px;
+    transition: border-color .15s;
+  }
+  select:hover, input:hover { border-color: var(--text2); }
+  select:focus, input:focus { border-color: var(--accent); }
+  .filter-sep { width: 1px; height: 32px; background: var(--border); margin: 0 4px; }
+  .btn-reset {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 12px;
+    font-family: var(--font);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-reset:hover { border-color: var(--accent3); color: var(--accent3); }
+
+  /* ── PANELS ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── KPI STRIP ── */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--text2); margin-bottom: 6px; }
+  .kpi-value { font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: var(--text); }
+  .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 3px; }
+  .kpi-delta { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; margin-top: 4px; }
+  .kpi-delta.up { background: rgba(63,185,80,.15); color: var(--accent2); }
+  .kpi-delta.dn { background: rgba(247,129,102,.15); color: var(--accent3); }
+
+  /* ── GRID CARDS ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .full-col { margin-bottom: 16px; }
+  @media(max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .card-meta { font-size: 11px; color: var(--text2); }
+  .card-body { padding: 0; }
+  .chart-wrap { padding: 16px; position: relative; height: 300px; }
+  .chart-wrap-tall { padding: 16px; position: relative; height: 380px; }
+
+  /* ── TABLE ── */
+  .table-wrap { overflow-x: auto; max-height: 480px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead { position: sticky; top: 0; z-index: 2; }
+  th {
+    background: var(--surface2);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  th:hover { color: var(--text); }
+  th.sort-asc::after { content: ' ▲'; font-size: 9px; }
+  th.sort-desc::after { content: ' ▼'; font-size: 9px; }
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(48,54,61,.5);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  td.num { font-family: var(--font-mono); text-align: right; }
+  td.sg-cell { font-weight: 600; color: var(--accent); }
+  .delta-cell { font-family: var(--font-mono); text-align: right; }
+  .delta-pos { color: var(--accent2); }
+  .delta-neg { color: var(--accent3); }
+
+  /* ── TABS (inner) ── */
+  .inner-tabs { display: flex; gap: 2px; padding: 12px 16px 0; border-bottom: 1px solid var(--border); }
+  .inner-tab {
+    background: none; border: none; color: var(--text2); font-size: 12px;
+    font-family: var(--font); padding: 6px 12px; cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all .15s; margin-bottom: -1px;
+  }
+  .inner-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .inner-tab:hover { color: var(--text); }
+
+  /* ── EMPTY STATE ── */
+  .empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 40px; color: var(--text2);
+    gap: 8px; text-align: center;
+  }
+  .empty-icon { font-size: 32px; opacity: .5; }
+  .empty-text { font-size: 13px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* ── MANAGE DATA modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.7); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px; max-width: 520px; width: 90%;
+  }
+  .modal h2 { font-size: 16px; margin-bottom: 8px; }
+  .modal p { color: var(--text2); font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+  .btn-primary {
+    background: var(--accent); color: #000; font-weight: 700;
+    border: none; padding: 8px 18px; border-radius: 6px;
+    font-family: var(--font); font-size: 13px; cursor: pointer; transition: opacity .15s;
+  }
+  .btn-primary:hover { opacity: .85; }
+  .btn-secondary {
+    background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 18px; border-radius: 6px; font-family: var(--font);
+    font-size: 13px; cursor: pointer; transition: background .15s;
+  }
+  .btn-secondary:hover { background: var(--border); }
+  .file-drop {
+    border: 2px dashed var(--border); border-radius: 8px;
+    padding: 24px; text-align: center; color: var(--text2);
+    font-size: 13px; cursor: pointer; transition: border-color .15s;
+    margin-bottom: 12px;
+  }
+  .file-drop:hover { border-color: var(--accent); color: var(--text); }
+  .file-list { font-size: 12px; color: var(--text2); margin-top: 8px; }
+  .file-list .file-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 10px; background: var(--surface2); border-radius: 5px;
+    margin-bottom: 4px;
+  }
+  .file-item .remove-btn { background: none; border: none; color: var(--accent3); cursor: pointer; font-size: 14px; }
+
+  /* ── NOTICE ── */
+  .notice {
+    background: rgba(88,166,255,.08); border: 1px solid rgba(88,166,255,.3);
+    border-radius: 6px; padding: 10px 14px; font-size: 12px;
+    color: var(--accent); margin-bottom: 16px; display: flex; gap: 8px;
+  }
+
+  /* ── MANAGE BTN ── */
+  .manage-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text2); font-size: 12px; font-family: var(--font);
+    padding: 5px 12px; border-radius: 6px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: all .15s;
+  }
+  .manage-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .sg-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; background: rgba(88,166,255,.15);
+    color: var(--accent); border: 1px solid rgba(88,166,255,.3);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-dot"></div>Carteras FCI</div>
+  <div class="header-tabs">
+    <button class="tab-btn active" onclick="switchPanel('posicion')">Posición</button>
+    <button class="tab-btn" onclick="switchPanel('evolucion')">Evolución</button>
+  </div>
+  <div class="header-right">
+    <span class="badge" id="badge-dates"></span>
+    <button class="manage-btn" onclick="openModal()">⬆ Actualizar datos</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- PANEL: POSICIÓN -->
+  <div id="panel-posicion" class="panel active">
+
+    <div class="filters-bar">
+      <div class="filter-group">
+        <span class="filter-label">Fecha</span>
+        <select id="sel-fecha-pos" onchange="renderPosicion()"></select>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label">Sociedad Gerente</span>
+        <select id="sel-sg-pos" onchange="renderPosicion()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Moneda</span>
+        <select id="sel-moneda-pos" onchange="renderPosicion()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Clasificación</span>
+        <select id="sel-clasif-pos" onchange="renderPosicion()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Buscar fondo</span>
+        <input type="text" id="input-fondo-pos" placeholder="Nombre del fondo..." oninput="renderPosicion()">
+      </div>
+      <div class="filter-sep"></div>
+      <button class="btn-reset" onclick="resetFilters('posicion')">Limpiar</button>
+    </div>
+
+    <div class="kpi-row" id="kpi-posicion"></div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Distribución por Sociedad Gerente</span>
+          <span class="card-meta" id="pie-sg-meta"></span>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="chart-pie-sg"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Top 15 Fondos por Monto</span>
+          <span class="card-meta" id="bar-fondos-meta"></span>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="chart-bar-fondos"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full-col">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Detalle de Posición</span>
+          <span class="card-meta" id="table-pos-meta"></span>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table id="table-posicion">
+              <thead>
+                <tr>
+                  <th onclick="sortTable('posicion',0)">Sociedad Gerente</th>
+                  <th onclick="sortTable('posicion',1)">Fondo</th>
+                  <th onclick="sortTable('posicion',2)">Moneda</th>
+                  <th onclick="sortTable('posicion',3)">Monto $</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: EVOLUCIÓN -->
+  <div id="panel-evolucion" class="panel">
+
+    <div class="filters-bar">
+      <div class="filter-group">
+        <span class="filter-label">Sociedad Gerente</span>
+        <select id="sel-sg-evo" onchange="renderEvolucion()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Fondo específico</span>
+        <select id="sel-fondo-evo" onchange="renderEvolucion()"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Moneda</span>
+        <select id="sel-moneda-evo" onchange="renderEvolucion()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-group">
+        <span class="filter-label">Clasificación</span>
+        <select id="sel-clasif-evo" onchange="renderEvolucion()"><option value="">Todas</option></select>
+      </div>
+      <div class="filter-sep"></div>
+      <button class="btn-reset" onclick="resetFilters('evolucion')">Limpiar</button>
+    </div>
+
+    <div class="kpi-row" id="kpi-evolucion"></div>
+
+    <div class="full-col">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Evolución del Patrimonio</span>
+          <span class="card-meta" id="chart-evo-meta"></span>
+        </div>
+        <div class="card-body">
+          <div class="inner-tabs" id="evo-mode-tabs">
+            <button class="inner-tab active" onclick="setEvoMode('sg')">Por Sociedad Gerente</button>
+            <button class="inner-tab" onclick="setEvoMode('fondo')">Por Fondo</button>
+            <button class="inner-tab" onclick="setEvoMode('total')">Total consolidado</button>
+          </div>
+          <div class="chart-wrap-tall"><canvas id="chart-evolucion"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="full-col">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Variación entre períodos</span>
+          <span class="card-meta" id="table-evo-meta"></span>
+        </div>
+        <div class="card-body">
+          <div class="table-wrap">
+            <table id="table-evolucion">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- MODAL ACTUALIZAR DATOS -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <h2>Actualizar base de datos</h2>
+    <p>Subí los nuevos archivos Excel de carteras. El sistema toma la fecha del nombre del archivo (<strong>YYYYMMDD</strong>_...). Podés reemplazar el período más viejo o agregar uno nuevo.</p>
+
+    <div class="notice">ℹ️ Los Excel deben tener la columna <strong>Sociedad Gerente</strong> completada antes de procesarlos con el script Python.</div>
+
+    <div class="file-drop" onclick="document.getElementById('file-input').click()">
+      <div style="font-size:24px;margin-bottom:8px;">📂</div>
+      Hacé clic o arrastrá archivos Excel (.xlsx) acá<br>
+      <span style="font-size:11px;margin-top:4px;display:block">Cada archivo = un viernes</span>
+    </div>
+    <input type="file" id="file-input" accept=".xlsx" multiple style="display:none" onchange="handleFileSelect(event)">
+    <div class="file-list" id="file-list"></div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px;margin-top:16px;font-size:12px;color:var(--text2);">
+      <strong style="color:var(--text);display:block;margin-bottom:6px;">Pasos para actualizar:</strong>
+      1. Agregá la columna <code style="color:var(--accent)">Sociedad Gerente</code> al nuevo Excel<br>
+      2. Ejecutá: <code style="color:var(--accent2)">python procesar_carteras.py archivo_nuevo.xlsx archivo2.xlsx archivo3.xlsx</code><br>
+      3. Reemplazá el <code>data.js</code> generado en la carpeta del sitio<br>
+      4. Hacé <em>push</em> a GitHub → se actualiza automáticamente
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let charts = {};
+let sortState = { posicion: { col: 3, dir: -1 }, evolucion: { col: 0, dir: 1 } };
+let evoMode = 'sg';
+let currentPanel = 'posicion';
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+function init() {
+  const dates = DATA.fechas;
+  document.getElementById('badge-dates').textContent = dates.join(' → ');
+
+  // Populate fecha selector
+  const selFecha = document.getElementById('sel-fecha-pos');
+  dates.forEach((d, i) => {
+    const o = new Option(formatDate(d), d);
+    if (i === dates.length - 1) o.selected = true;
+    selFecha.add(o);
+  });
+
+  // Collect unique values
+  const sgs = [...new Set(DATA.posicion.map(r => r['Sociedad Gerente']).filter(Boolean))].sort();
+  const monedas = [...new Set(DATA.posicion.map(r => r.Moneda).filter(Boolean))].sort();
+
+  // Get classifications from activos
+  const clasifs = [...new Set(DATA.activos.map(r => r['Clasificación']).filter(Boolean))].sort();
+
+  // Funds
+  const fondos = [...new Set(DATA.posicion.map(r => r.Fondo).filter(Boolean))].sort();
+
+  // Populate all selects
+  ['sel-sg-pos','sel-sg-evo'].forEach(id => {
+    const sel = document.getElementById(id);
+    sgs.forEach(sg => sel.add(new Option(sg, sg)));
+  });
+  ['sel-moneda-pos','sel-moneda-evo'].forEach(id => {
+    const sel = document.getElementById(id);
+    monedas.forEach(m => sel.add(new Option(m, m)));
+  });
+  ['sel-clasif-pos','sel-clasif-evo'].forEach(id => {
+    const sel = document.getElementById(id);
+    clasifs.forEach(c => sel.add(new Option(c, c)));
+  });
+
+  const selFondoEvo = document.getElementById('sel-fondo-evo');
+  fondos.forEach(f => selFondoEvo.add(new Option(f, f)));
+
+  renderPosicion();
+  renderEvolucion();
+}
+
+// ═══════════════════════════════════════════════════════════
+// FILTER HELPERS
+// ═══════════════════════════════════════════════════════════
+function getPosicionFiltered() {
+  const fecha  = document.getElementById('sel-fecha-pos').value;
+  const sg     = document.getElementById('sel-sg-pos').value;
+  const moneda = document.getElementById('sel-moneda-pos').value;
+  const clasif = document.getElementById('sel-clasif-pos').value;
+  const fondo  = document.getElementById('input-fondo-pos').value.toLowerCase().trim();
+
+  let rows = DATA.posicion.filter(r => r.Fecha === fecha);
+  if (sg)     rows = rows.filter(r => r['Sociedad Gerente'] === sg);
+  if (moneda) rows = rows.filter(r => r.Moneda === moneda);
+  if (fondo)  rows = rows.filter(r => r.Fondo.toLowerCase().includes(fondo));
+
+  // Clasificación filter via activos (match fondo+fecha)
+  if (clasif) {
+    const matchFondos = new Set(
+      DATA.activos.filter(r => r.Fecha === fecha && r['Clasificación'] === clasif).map(r => r.Fondo)
+    );
+    rows = rows.filter(r => matchFondos.has(r.Fondo));
+  }
+
+  return rows;
+}
+
+function getEvolucionFiltered() {
+  const sg     = document.getElementById('sel-sg-evo').value;
+  const fondo  = document.getElementById('sel-fondo-evo').value;
+  const moneda = document.getElementById('sel-moneda-evo').value;
+  const clasif = document.getElementById('sel-clasif-evo').value;
+
+  let rows = [...DATA.posicion];
+  if (sg)     rows = rows.filter(r => r['Sociedad Gerente'] === sg);
+  if (fondo)  rows = rows.filter(r => r.Fondo === fondo);
+  if (moneda) rows = rows.filter(r => r.Moneda === moneda);
+
+  if (clasif) {
+    const matchFondos = new Set(DATA.activos.filter(r => r['Clasificación'] === clasif).map(r => r.Fondo));
+    rows = rows.filter(r => matchFondos.has(r.Fondo));
+  }
+
+  return rows;
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER POSICIÓN
+// ═══════════════════════════════════════════════════════════
+function renderPosicion() {
+  const rows = getPosicionFiltered();
+  const fecha = document.getElementById('sel-fecha-pos').value;
+
+  // KPIs
+  const total = rows.reduce((s, r) => s + r['Monto $'], 0);
+  const sgsCount = new Set(rows.map(r => r['Sociedad Gerente']).filter(Boolean)).size;
+  const fondosCount = new Set(rows.map(r => r.Fondo)).size;
+
+  // Previous date total for delta
+  const dates = DATA.fechas;
+  const prevDate = dates[dates.indexOf(fecha) - 1];
+  let delta = null;
+  if (prevDate) {
+    const sg     = document.getElementById('sel-sg-pos').value;
+    const moneda = document.getElementById('sel-moneda-pos').value;
+    let prev = DATA.posicion.filter(r => r.Fecha === prevDate);
+    if (sg) prev = prev.filter(r => r['Sociedad Gerente'] === sg);
+    if (moneda) prev = prev.filter(r => r.Moneda === moneda);
+    const prevTotal = prev.reduce((s, r) => s + r['Monto $'], 0);
+    if (prevTotal > 0) delta = (total - prevTotal) / prevTotal * 100;
+  }
+
+  let deltaHtml = '';
+  if (delta !== null) {
+    const cls = delta >= 0 ? 'up' : 'dn';
+    const sign = delta >= 0 ? '+' : '';
+    deltaHtml = `<span class="kpi-delta ${cls}">${sign}${delta.toFixed(2)}% vs anterior</span>`;
+  }
+
+  document.getElementById('kpi-posicion').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Patrimonio Total</div>
+      <div class="kpi-value">${fmtBig(total)}</div>
+      <div class="kpi-sub">${formatDate(fecha)}</div>
+      ${deltaHtml}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Fondos en Cartera</div>
+      <div class="kpi-value">${fondosCount}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Sociedades Gerentes</div>
+      <div class="kpi-value">${sgsCount || '—'}</div>
+    </div>
+  `;
+
+  // Pie chart SG
+  const bySG = groupSum(rows, 'Sociedad Gerente');
+  const sgEntries = Object.entries(bySG).sort((a,b)=>b[1]-a[1]).slice(0, 12);
+  document.getElementById('pie-sg-meta').textContent = `${sgEntries.length} SG`;
+  renderChart('chart-pie-sg', 'doughnut', {
+    labels: sgEntries.map(e => e[0] || '(sin SG)'),
+    datasets: [{
+      data: sgEntries.map(e => e[1]),
+      backgroundColor: PALETTE.slice(0, sgEntries.length),
+      borderColor: '#161b22',
+      borderWidth: 2,
+    }]
+  }, {
+    plugins: {
+      legend: { position: 'right', labels: { color: '#8b949e', font: { size: 11 }, boxWidth: 12 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmtBig(ctx.raw)}` } }
+    }
+  });
+
+  // Bar chart top fondos
+  const byFondo = groupSum(rows, 'Fondo');
+  const topFondos = Object.entries(byFondo).sort((a,b)=>b[1]-a[1]).slice(0, 15);
+  document.getElementById('bar-fondos-meta').textContent = `top 15 de ${Object.keys(byFondo).length}`;
+  renderChart('chart-bar-fondos', 'bar', {
+    labels: topFondos.map(e => e[0].length > 28 ? e[0].slice(0,27)+'…' : e[0]),
+    datasets: [{
+      data: topFondos.map(e => e[1]),
+      backgroundColor: 'rgba(88,166,255,.7)',
+      borderRadius: 4,
+    }]
+  }, {
+    indexAxis: 'y',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${fmtBig(ctx.raw)}` } }
+    },
+    scales: {
+      x: { ticks: { color: '#8b949e', callback: v => fmtBig(v) }, grid: { color: '#30363d' } },
+      y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { display: false } }
+    }
+  });
+
+  // Table
+  document.getElementById('table-pos-meta').textContent = `${rows.length} registros`;
+  const sorted = [...rows].sort((a, b) => {
+    const { col, dir } = sortState.posicion;
+    const keys = ['Sociedad Gerente', 'Fondo', 'Moneda', 'Monto $'];
+    const va = a[keys[col]], vb = b[keys[col]];
+    return typeof va === 'number' ? (va - vb) * dir : String(va||'').localeCompare(String(vb||'')) * dir;
+  });
+
+  document.querySelector('#table-posicion tbody').innerHTML = sorted.map(r => `
+    <tr>
+      <td class="sg-cell">${r['Sociedad Gerente'] || '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${r.Fondo}</td>
+      <td><span style="font-family:var(--font-mono);font-size:11px;padding:1px 6px;background:rgba(255,255,255,.06);border-radius:4px">${r.Moneda}</span></td>
+      <td class="num">${fmtNum(r['Monto $'])}</td>
+    </tr>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER EVOLUCIÓN
+// ═══════════════════════════════════════════════════════════
+function renderEvolucion() {
+  const rows = getEvolucionFiltered();
+  const dates = DATA.fechas;
+
+  // KPIs: last date total, delta first to last
+  const lastDate = dates[dates.length - 1];
+  const firstDate = dates[0];
+  const lastRows  = rows.filter(r => r.Fecha === lastDate);
+  const firstRows = rows.filter(r => r.Fecha === firstDate);
+  const lastTotal = lastRows.reduce((s,r) => s + r['Monto $'], 0);
+  const firstTotal = firstRows.reduce((s,r) => s + r['Monto $'], 0);
+  const deltaTotal = firstTotal > 0 ? (lastTotal - firstTotal) / firstTotal * 100 : null;
+
+  let deltaHtml = '';
+  if (deltaTotal !== null) {
+    const cls = deltaTotal >= 0 ? 'up' : 'dn';
+    deltaHtml = `<span class="kpi-delta ${cls}">${deltaTotal >= 0 ? '+' : ''}${deltaTotal.toFixed(2)}% período completo</span>`;
+  }
+
+  document.getElementById('kpi-evolucion').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Último período (${formatDate(lastDate)})</div>
+      <div class="kpi-value">${fmtBig(lastTotal)}</div>
+      ${deltaHtml}
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Primer período (${formatDate(firstDate)})</div>
+      <div class="kpi-value">${fmtBig(firstTotal)}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Variación absoluta</div>
+      <div class="kpi-value" style="color:${lastTotal - firstTotal >= 0 ? 'var(--accent2)':'var(--accent3)'}">${fmtBig(lastTotal - firstTotal)}</div>
+    </div>
+  `;
+
+  // Build evolution chart
+  renderEvolucionChart(rows, dates);
+
+  // Table
+  renderEvolucionTable(rows, dates);
+}
+
+function setEvoMode(mode) {
+  evoMode = mode;
+  document.querySelectorAll('#evo-mode-tabs .inner-tab').forEach((t, i) => {
+    t.classList.toggle('active', ['sg','fondo','total'][i] === mode);
+  });
+  const rows = getEvolucionFiltered();
+  renderEvolucionChart(rows, DATA.fechas);
+}
+
+function renderEvolucionChart(rows, dates) {
+  const fmtLabel = d => formatDate(d);
+
+  if (evoMode === 'total') {
+    const totals = dates.map(d => rows.filter(r => r.Fecha === d).reduce((s,r) => s + r['Monto $'], 0));
+    renderChart('chart-evolucion', 'line', {
+      labels: dates.map(fmtLabel),
+      datasets: [{
+        label: 'Total',
+        data: totals,
+        borderColor: '#58a6ff',
+        backgroundColor: 'rgba(88,166,255,.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 5,
+        pointHoverRadius: 8,
+      }]
+    }, lineOpts());
+    return;
+  }
+
+  if (evoMode === 'sg') {
+    const sgs = [...new Set(rows.map(r => r['Sociedad Gerente']).filter(Boolean))].sort();
+    const datasets = sgs.slice(0, 12).map((sg, i) => ({
+      label: sg || '(sin SG)',
+      data: dates.map(d => rows.filter(r => r.Fecha === d && r['Sociedad Gerente'] === sg).reduce((s,r) => s + r['Monto $'], 0)),
+      borderColor: PALETTE[i % PALETTE.length],
+      backgroundColor: PALETTE[i % PALETTE.length] + '22',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 4,
+    }));
+    renderChart('chart-evolucion', 'line', { labels: dates.map(fmtLabel), datasets }, lineOpts());
+    return;
+  }
+
+  if (evoMode === 'fondo') {
+    const fondos = [...new Set(rows.map(r => r.Fondo))].sort();
+    // top 12 by last date
+    const lastDate = dates[dates.length - 1];
+    const topFondos = fondos
+      .map(f => ({ f, v: rows.filter(r => r.Fondo === f && r.Fecha === lastDate).reduce((s,r) => s + r['Monto $'], 0) }))
+      .sort((a,b) => b.v - a.v).slice(0, 12).map(x => x.f);
+
+    const datasets = topFondos.map((f, i) => ({
+      label: f.length > 30 ? f.slice(0,29)+'…' : f,
+      data: dates.map(d => rows.filter(r => r.Fondo === f && r.Fecha === d).reduce((s,r) => s + r['Monto $'], 0)),
+      borderColor: PALETTE[i % PALETTE.length],
+      backgroundColor: 'transparent',
+      fill: false,
+      tension: 0.3,
+      pointRadius: 4,
+    }));
+    renderChart('chart-evolucion', 'line', { labels: dates.map(fmtLabel), datasets }, lineOpts());
+  }
+}
+
+function renderEvolucionTable(rows, dates) {
+  const sg = document.getElementById('sel-sg-evo').value;
+  const fondo = document.getElementById('sel-fondo-evo').value;
+  const groupKey = fondo ? 'Fondo' : 'Sociedad Gerente';
+
+  const groups = [...new Set(rows.map(r => r[groupKey]).filter(v => v !== undefined && v !== null))].sort();
+
+  // Build header
+  const thead = document.querySelector('#table-evolucion thead');
+  const tbody = document.querySelector('#table-evolucion tbody');
+  thead.innerHTML = `<tr>
+    <th>${fondo ? 'Fondo' : 'Sociedad Gerente'}</th>
+    ${dates.map(d => `<th onclick="sortTable('evolucion',${dates.indexOf(d)+1})">${formatDate(d)}</th>`).join('')}
+    <th>Δ Total</th>
+    <th>Δ %</th>
+  </tr>`;
+
+  const tableData = groups.map(g => {
+    const vals = dates.map(d => rows.filter(r => r[groupKey] === g && r.Fecha === d).reduce((s,r) => s + r['Monto $'], 0));
+    const first = vals[0], last = vals[vals.length - 1];
+    const delta = last - first;
+    const deltaPct = first > 0 ? delta / first * 100 : null;
+    return { g, vals, delta, deltaPct };
+  });
+
+  // Sort
+  const { col, dir } = sortState.evolucion;
+  tableData.sort((a, b) => {
+    if (col === 0) return String(a.g).localeCompare(String(b.g)) * dir;
+    if (col <= dates.length) return (a.vals[col-1] - b.vals[col-1]) * dir;
+    if (col === dates.length + 1) return (a.delta - b.delta) * dir;
+    return ((a.deltaPct || 0) - (b.deltaPct || 0)) * dir;
+  });
+
+  tbody.innerHTML = tableData.map(({ g, vals, delta, deltaPct }) => {
+    const dSign = delta >= 0;
+    const pctStr = deltaPct !== null ? `<span class="${dSign ? 'delta-pos' : 'delta-neg'}">${dSign ? '+' : ''}${deltaPct.toFixed(2)}%</span>` : '—';
+    return `<tr>
+      <td class="sg-cell">${g || '(sin asignar)'}</td>
+      ${vals.map(v => `<td class="num">${fmtNum(v)}</td>`).join('')}
+      <td class="delta-cell ${dSign ? 'delta-pos' : 'delta-neg'}">${dSign ? '+' : ''}${fmtNum(delta)}</td>
+      <td class="delta-cell">${pctStr}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('table-evo-meta').textContent = `${tableData.length} grupos`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHART HELPERS
+// ═══════════════════════════════════════════════════════════
+const PALETTE = [
+  '#58a6ff','#3fb950','#f78166','#d2a8ff','#ffa657',
+  '#79c0ff','#56d364','#ff7b72','#bc8cff','#ffb86c',
+  '#39d353','#f97583','#b392f0','#ffea7f','#2ea043'
+];
+
+function lineOpts() {
+  return {
+    plugins: {
+      legend: { labels: { color: '#8b949e', font: { size: 11 }, boxWidth: 12, usePointStyle: true } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtBig(ctx.raw)}` } }
+    },
+    scales: {
+      x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
+      y: { ticks: { color: '#8b949e', callback: v => fmtBig(v) }, grid: { color: '#30363d' } }
+    },
+    interaction: { mode: 'index', intersect: false }
+  };
+}
+
+function renderChart(id, type, data, options = {}) {
+  const canvas = document.getElementById(id);
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+  charts[id] = new Chart(canvas, {
+    type,
+    data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      ...options
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// TABLE SORTING
+// ═══════════════════════════════════════════════════════════
+function sortTable(panel, col) {
+  const state = sortState[panel];
+  state.dir = state.col === col ? state.dir * -1 : 1;
+  state.col = col;
+  if (panel === 'posicion') renderPosicion();
+  else renderEvolucion();
+}
+
+// ═══════════════════════════════════════════════════════════
+// PANEL SWITCH
+// ═══════════════════════════════════════════════════════════
+function switchPanel(panel) {
+  currentPanel = panel;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + panel).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['posicion','evolucion'][i] === panel);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// RESET FILTERS
+// ═══════════════════════════════════════════════════════════
+function resetFilters(panel) {
+  if (panel === 'posicion') {
+    document.getElementById('sel-sg-pos').value = '';
+    document.getElementById('sel-moneda-pos').value = '';
+    document.getElementById('sel-clasif-pos').value = '';
+    document.getElementById('input-fondo-pos').value = '';
+    renderPosicion();
+  } else {
+    document.getElementById('sel-sg-evo').value = '';
+    document.getElementById('sel-fondo-evo').value = '';
+    document.getElementById('sel-moneda-evo').value = '';
+    document.getElementById('sel-clasif-evo').value = '';
+    renderEvolucion();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════
+function openModal() { document.getElementById('modal-overlay').classList.add('open'); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function closeModalOutside(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
+function handleFileSelect(e) {
+  const files = Array.from(e.target.files);
+  const list = document.getElementById('file-list');
+  list.innerHTML = files.map(f => `
+    <div class="file-item">
+      <span>📄 ${f.name}</span>
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${(f.size/1024/1024).toFixed(1)} MB</span>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
+function groupSum(rows, key) {
+  return rows.reduce((acc, r) => {
+    const k = r[key] || '';
+    acc[k] = (acc[k] || 0) + r['Monto $'];
+    return acc;
+  }, {});
+}
+
+function fmtNum(n) {
+  if (!n && n !== 0) return '—';
+  if (Math.abs(n) >= 1e12) return (n/1e12).toFixed(2) + ' T';
+  if (Math.abs(n) >= 1e9)  return (n/1e9).toFixed(2) + ' B';
+  if (Math.abs(n) >= 1e6)  return (n/1e6).toFixed(2) + ' M';
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function fmtBig(n) {
+  if (!n && n !== 0) return '—';
+  if (Math.abs(n) >= 1e12) return (n/1e12).toFixed(2) + ' T';
+  if (Math.abs(n) >= 1e9)  return (n/1e9).toFixed(1) + ' B';
+  if (Math.abs(n) >= 1e6)  return (n/1e6).toFixed(1) + ' M';
+  return n.toLocaleString('es-AR', {maximumFractionDigits: 0});
+}
+
+function formatDate(d) {
+  const [y, m, day] = d.split('-');
+  const months = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${day} ${months[+m]} ${y}`;
+}
+
+// ── START ──
+init();
+</script>
+</body>
+</html>
+PYEOF
+echo "index.html creado"
+wc -c /home/claude/fci_dashboard/index.html
