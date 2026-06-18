@@ -132,7 +132,11 @@
     <div class="filter-group"><span class="filter-label">Fondo</span><select id="pos-fondo" onchange="onPosFondoChange()"><option value="">Todos</option></select></div>
     <div class="filter-sep"></div>
     <div class="filter-group"><span class="filter-label">Tipo de Activo (Clase)</span><select id="pos-clase" onchange="onPosClaseChange()"><option value="">Todos</option></select></div>
-    <div class="filter-group"><span class="filter-label">Activo</span><select id="pos-activo" onchange="onPosActivoChange()"><option value="">Todos</option></select></div>
+    <div class="filter-group" style="position:relative">
+      <span class="filter-label">Activo</span>
+      <input type="text" id="pos-activo-input" placeholder="Escribí para buscar..." oninput="onPosActivoInput()" onkeydown="onPosActivoKey(event)" autocomplete="off" style="min-width:200px">
+      <div class="autocomplete-list" id="pos-activo-ac-list"></div>
+    </div>
     <div class="filter-sep"></div>
     <div class="filter-group"><span class="filter-label">Moneda</span><select id="pos-moneda" onchange="renderPosicion()"><option value="">Todas</option></select></div>
     <div class="filter-sep"></div>
@@ -617,7 +621,7 @@ function resetFilters(p){
     populate('pos-fondo',DATA.meta.fondos);
     document.getElementById('pos-fondo').value='';
     document.getElementById('pos-clase').innerHTML='<option value="">Todos</option>';
-    document.getElementById('pos-activo').innerHTML='<option value="">Todos</option>';
+    document.getElementById('pos-activo-input').value=''; posActivoEkFilter=null;
     posActivoEkFilter=null;
     renderPosicion();
   }
@@ -663,7 +667,7 @@ function onPosSgChange(){
   // Reset clase/activo filters since fondo changed - table renders instantly using light data.js
   document.getElementById('pos-clase').value='';
   posActivoEkFilter=null;
-  document.getElementById('pos-activo').innerHTML='<option value="">Todos</option>';
+  document.getElementById('pos-activo-input').value=''; posActivoEkFilter=null;
   renderPosicion();
   // Heavy work (populating clase/activo dropdown options) happens after, non-blocking
   refreshPosClaseActivo();
@@ -672,7 +676,7 @@ function onPosSgChange(){
 function onPosFondoChange(){
   document.getElementById('pos-clase').value='';
   posActivoEkFilter=null;
-  document.getElementById('pos-activo').innerHTML='<option value="">Todos</option>';
+  document.getElementById('pos-activo-input').value=''; posActivoEkFilter=null;
   renderPosicion();
   refreshPosClaseActivo();
 }
@@ -705,16 +709,17 @@ async function refreshPosClaseActivo(){
   selClase.value = clases.includes(prevClase) ? prevClase : '';
 
   await yieldToUI();
-  await refreshPosActivoOptions();
 }
 
 async function onPosClaseChange(){
-  await refreshPosActivoOptions();
+  document.getElementById('pos-activo-input').value='';
+  posActivoEkFilter=null;
   renderPosicion();
 }
 
-async function refreshPosActivoOptions(){
-  if(!activosLoaded) return;
+// Returns candidate ek-rows for current SG/Fondo/Clase/Fecha context (used by activo autocomplete)
+function getPosActivoContextRows(){
+  if(!activosLoaded) return [];
   const A = ACTIVOS;
   const sg = document.getElementById('pos-sg').value;
   const fondo = document.getElementById('pos-fondo').value;
@@ -726,30 +731,63 @@ async function refreshPosActivoOptions(){
   if(sg){ const si=A.sgs.indexOf(sg); rows = rows.filter(r=>r[2]===si); }
   if(fondo){ const foi=A.fos.indexOf(fondo); rows = rows.filter(r=>r[3]===foi); }
   if(clase) rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[1]===clase; });
-
-  const ekSet = new Set();
-  for(const r of rows) ekSet.add(r[1]);
-  const activoList = [...ekSet].map(ei => ({ ei, label: (A.lookup[ei]?A.lookup[ei][0]:A.eks[ei]) || A.eks[ei] }));
-  // Simple string sort (faster than localeCompare for large lists)
-  activoList.sort((a,b)=> a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
-
-  const selActivo = document.getElementById('pos-activo');
-  const prevVal = selActivo.value;
-  const frag = document.createDocumentFragment();
-  frag.appendChild(new Option('Todos',''));
-  // Cap to 3000 options to keep the dropdown responsive; refine with Clase/Fondo filters for more
-  const capped = activoList.length > 3000 ? activoList.slice(0,3000) : activoList;
-  for(const a of capped) frag.appendChild(new Option(a.label, A.eks[a.ei]));
-  while(selActivo.options.length) selActivo.remove(0);
-  selActivo.appendChild(frag);
-  const stillValid = capped.some(a=>A.eks[a.ei]===prevVal);
-  selActivo.value = stillValid ? prevVal : '';
-  posActivoEkFilter = selActivo.value || null;
+  return rows;
 }
 
-function onPosActivoChange(){
-  const selActivo = document.getElementById('pos-activo');
-  posActivoEkFilter = selActivo.value || null;
+let posActivoAcSelected=-1;
+
+function onPosActivoInput(){
+  const q=document.getElementById('pos-activo-input').value.trim().toUpperCase();
+  const list=document.getElementById('pos-activo-ac-list');
+  posActivoAcSelected=-1;
+
+  if(q.length<2){ list.classList.remove('show'); posActivoEkFilter=null; renderPosicion(); return; }
+  if(!activosLoaded){ list.classList.remove('show'); return; }
+
+  const A=ACTIVOS;
+  const rows=getPosActivoContextRows();
+  const ekSet=new Set();
+  for(const r of rows) ekSet.add(r[1]);
+
+  const seen=new Set();
+  const matches=[];
+  for(const ei of ekSet){
+    const ek=A.eks[ei]||'';
+    const lkp=A.lookup[ei];
+    const al=lkp?(lkp[0]||''):'';
+    const display = al && al.length<=60 ? al : ek;
+    const hit = ek.toUpperCase().includes(q) || al.toUpperCase().includes(q);
+    if(hit && !seen.has(display)){ seen.add(display); matches.push({display, ek}); }
+    if(matches.length>=20) break;
+  }
+
+  if(!matches.length){ list.classList.remove('show'); return; }
+  list.innerHTML=matches.map((m,i)=>`<div class="ac-item" data-ek="${esc(m.ek)}" data-display="${esc(m.display)}" onmousedown="selectPosActivo('${esc(m.ek)}','${esc(m.display)}')" onmouseover="posActivoAcSelected=${i}"><span class="ac-ticker">${m.display}</span></div>`).join('');
+  list.classList.add('show');
+}
+
+function onPosActivoKey(e){
+  const list=document.getElementById('pos-activo-ac-list');
+  const items=list.querySelectorAll('.ac-item');
+  if(e.key==='ArrowDown'){posActivoAcSelected=Math.min(posActivoAcSelected+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('selected',i===posActivoAcSelected));e.preventDefault();}
+  else if(e.key==='ArrowUp'){posActivoAcSelected=Math.max(posActivoAcSelected-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===posActivoAcSelected));e.preventDefault();}
+  else if(e.key==='Enter'){
+    if(posActivoAcSelected>=0&&items[posActivoAcSelected]) selectPosActivo(items[posActivoAcSelected].dataset.ek, items[posActivoAcSelected].dataset.display);
+    list.classList.remove('show');
+  }
+  else if(e.key==='Escape'){ list.classList.remove('show'); }
+}
+
+function selectPosActivo(ek, display){
+  document.getElementById('pos-activo-input').value=display;
+  document.getElementById('pos-activo-ac-list').classList.remove('show');
+  posActivoEkFilter=ek;
+  renderPosicion();
+}
+
+function clearPosActivo(){
+  document.getElementById('pos-activo-input').value='';
+  posActivoEkFilter=null;
   renderPosicion();
 }
 
@@ -842,7 +880,10 @@ function renderCartera() {
 function closeCartera() { document.getElementById('cartera-modal').classList.remove('open'); }
 function closeCarteraOutside(e) { if(e.target===document.getElementById('cartera-modal')) closeCartera(); }
 
-document.addEventListener('click',e=>{ if(!e.target.closest('#pos-especie-input')&&!e.target.closest('#pos-ac-list')) document.getElementById('pos-ac-list').classList.remove('show');if(!e.target.closest('.especie-search-wrap'))document.getElementById('ac-list').classList.remove('show');});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.especie-search-wrap')) document.getElementById('ac-list').classList.remove('show');
+  if(!e.target.closest('#pos-activo-input')&&!e.target.closest('#pos-activo-ac-list')) document.getElementById('pos-activo-ac-list').classList.remove('show');
+});
 init();
 </script>
 </body>
