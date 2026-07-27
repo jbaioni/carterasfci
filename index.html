@@ -334,58 +334,88 @@ function getPosRows(){
 }
 
 function renderPosicion(){
-  const rows=getPosRows();
   const fecha=document.getElementById('pos-fecha').value;
-  const total=rows.reduce((s,r)=>s+r['Monto $'],0);
-  const fondosCount=new Set(rows.map(r=>r.Fondo)).size;
-  const sgsCount=new Set(rows.map(r=>r['Sociedad Gerente']).filter(Boolean)).size;
+  const sgFil=document.getElementById('pos-sg').value;
+  const fondoFil=document.getElementById('pos-fondo').value;
+  const monedaFil=document.getElementById('pos-moneda').value;
+  const clase=document.getElementById('pos-clase').value;
+  const activoEk=posActivoEkFilter;
 
-  // KPI delta vs prev date
-  const dates=DATA.fechas;
-  const prevDate=dates[dates.indexOf(fecha)-1];
-  let deltaHtml='';
-  if(prevDate){
-    const sg=document.getElementById('pos-sg').value;
-    const m=document.getElementById('pos-moneda').value;
-    let prev=DATA.posicion.filter(r=>r.Fecha===prevDate);
-    if(sg) prev=prev.filter(r=>r['Sociedad Gerente']===sg);
-    if(m) prev=prev.filter(r=>r.Moneda===m);
-    const pt=prev.reduce((s,r)=>s+r['Monto $'],0);
-    if(pt>0){const d=(total-pt)/pt*100;deltaHtml=`<span class="kpi-delta ${d>=0?'up':'dn'}">${d>=0?'+':''}${d.toFixed(2)}% vs anterior</span>`;}
+  // ── Modo activo: usamos ACTIVOS.rows para montos exactos del activo ──
+  const modoActivo = activoEk && activosLoaded;
+  const modoClase  = clase && !activoEk && activosLoaded;
+
+  let bySGFull={};  // { sg: { total, fondos: { fo: { total, mo } } } }
+
+  if(modoActivo || modoClase){
+    const A=ACTIVOS;
+    const fi=DATA.fechas.indexOf(fecha);
+    let aRows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r=>r[0]===fi);
+
+    if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
+    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});
+
+    if(sgFil){const si=A.sgs.indexOf(sgFil);aRows=aRows.filter(r=>r[2]===si);}
+    if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
+    if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRows=aRows.filter(r=>r[4]===mi);}
+
+    aRows.forEach(r=>{
+      const sg=A.sgs[r[2]]||'(sin SG)';
+      const fo=A.fos[r[3]];
+      const mo=A.mos[r[4]];
+      const m=r[5];
+      if(!bySGFull[sg])bySGFull[sg]={total:0,fondos:{}};
+      bySGFull[sg].total+=m;
+      if(!bySGFull[sg].fondos[fo])bySGFull[sg].fondos[fo]={total:0,mo};
+      bySGFull[sg].fondos[fo].total+=m;
+    });
+  } else {
+    // Modo normal: usamos DATA.posicion (totales por fondo)
+    let rows=DATA.posicion.filter(r=>r.Fecha===fecha);
+    if(sgFil) rows=rows.filter(r=>r['Sociedad Gerente']===sgFil);
+    if(fondoFil) rows=rows.filter(r=>r.Fondo===fondoFil);
+    if(monedaFil) rows=rows.filter(r=>r.Moneda===monedaFil);
+    rows.forEach(r=>{
+      const sg=r['Sociedad Gerente']||'(sin SG)';
+      if(!bySGFull[sg])bySGFull[sg]={total:0,fondos:{}};
+      bySGFull[sg].total+=r['Monto $'];
+      if(!bySGFull[sg].fondos[r.Fondo])bySGFull[sg].fondos[r.Fondo]={total:0,mo:r.Moneda};
+      bySGFull[sg].fondos[r.Fondo].total+=r['Monto $'];
+    });
   }
+
+  const total=Object.values(bySGFull).reduce((s,d)=>s+d.total,0);
+  const fondosCount=Object.values(bySGFull).reduce((s,d)=>s+Object.keys(d.fondos).length,0);
+  const sgsCount=Object.keys(bySGFull).length;
+
+  // KPI
+  const kpiLabel = activoEk ? `Tenencia "${posActivoEkFilter}"` : 'Patrimonio Total';
   document.getElementById('kpi-posicion').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Patrimonio Total</div><div class="kpi-value">${fmtBig(total)}</div><div class="kpi-sub">${fmtDate(fecha)}</div>${deltaHtml}</div>
+    <div class="kpi-card"><div class="kpi-label">${kpiLabel}</div><div class="kpi-value">${fmtBig(total)}</div><div class="kpi-sub">${fmtDate(fecha)}</div></div>
     <div class="kpi-card"><div class="kpi-label">Fondos</div><div class="kpi-value">${fondosCount}</div></div>
     <div class="kpi-card"><div class="kpi-label">Soc. Gerentes</div><div class="kpi-value">${sgsCount||'—'}</div></div>`;
 
   // Charts
-  const bySG=groupSum(rows,'Sociedad Gerente');
-  const sgE=Object.entries(bySG).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const bySGChart={};
+  Object.entries(bySGFull).forEach(([sg,d])=>bySGChart[sg]=d.total);
+  const sgE=Object.entries(bySGChart).sort((a,b)=>b[1]-a[1]).slice(0,12);
   document.getElementById('pie-meta').textContent=`${sgE.length} SG`;
   renderChart('chart-pie-sg','doughnut',{labels:sgE.map(e=>e[0]||'(sin SG)'),datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
-  const byF=groupSum(rows,'Fondo');
-  const topF=Object.entries(byF).sort((a,b)=>b[1]-a[1]).slice(0,15);
-  document.getElementById('bar-meta').textContent=`top 15 de ${Object.keys(byF).length}`;
+
+  const byFChart={};
+  Object.values(bySGFull).forEach(d=>Object.entries(d.fondos).forEach(([fo,fd])=>byFChart[fo]=(byFChart[fo]||0)+fd.total));
+  const topF=Object.entries(byFChart).sort((a,b)=>b[1]-a[1]).slice(0,15);
+  document.getElementById('bar-meta').textContent=`top 15 de ${Object.keys(byFChart).length}`;
   renderChart('chart-bar-fondos','bar',{labels:topF.map(e=>e[0].length>28?e[0].slice(0,27)+'…':e[0]),datasets:[{data:topF.map(e=>e[1]),backgroundColor:'rgba(88,166,255,.7)',borderRadius:4}]},{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${fmtBig(ctx.raw)}`}}},scales:{x:{ticks:{color:'#8b949e',callback:v=>fmtBig(v)},grid:{color:'#30363d'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{display:false}}}});
 
-  // Grouped table SG → Fondos
-  const bySGFull={};
-  rows.forEach(r=>{
-    const sg=r['Sociedad Gerente']||'(sin SG)';
-    if(!bySGFull[sg])bySGFull[sg]={total:0,fondos:{}};
-    bySGFull[sg].total+=r['Monto $'];
-    const fo=r.Fondo,mo=r.Moneda;
-    if(!bySGFull[sg].fondos[fo])bySGFull[sg].fondos[fo]={total:0,mo};
-    bySGFull[sg].fondos[fo].total+=r['Monto $'];
-  });
-
+  // Tabla agrupada SG → Fondos
   let sgList=Object.entries(bySGFull).sort((a,b)=>(b[1].total-a[1].total)*posSortDir);
-  document.getElementById('table-pos-meta').textContent=`${sgList.length} SG · ${fondosCount} fondos`;
+  document.getElementById('table-pos-meta').textContent=`${sgsCount} SG · ${fondosCount} fondos`;
 
   const tbody=document.querySelector('#table-posicion tbody');
   let html='';
   sgList.forEach(([sg,data])=>{
-    const pct=(data.total/total*100).toFixed(1);
+    const pct=total>0?(data.total/total*100).toFixed(1):'0.0';
     const isExp=!!expandedSGs.pos[sg];
     html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
       <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
@@ -394,9 +424,9 @@ function renderPosicion(){
       <td>${pct}%</td>
     </tr>`;
     Object.entries(data.fondos).sort((a,b)=>b[1].total-a[1].total).forEach(([fo,fd])=>{
-      const fpct=(fd.total/total*100).toFixed(2);
-      html+=`<tr class="fondo-row ${isExp?'':'hidden'}">
-        <td>${fo}</td>
+      const fpct=total>0?(fd.total/total*100).toFixed(2):'0.00';
+      html+=`<tr class="fondo-row ${isExp?'':'hidden'}" style="cursor:pointer" onclick="openCartera('${esc(fo)}','${fecha}','${esc(sg)}')">
+        <td style="color:var(--accent4)">${fo}</td>
         <td><span class="moneda-pill">${fd.mo}</span></td>
         <td>${fmtNum(fd.total)}</td>
         <td>${fpct}%</td>
