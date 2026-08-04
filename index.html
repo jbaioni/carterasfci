@@ -268,84 +268,62 @@
     <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)" id="cart-footer"></div>
   </div>
 </div>
+
 <!-- ═══ RECIPROCIDAD ═══ -->
 <div id="panel-reciprocidad" class="panel">
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;">
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
-      Este panel muestra la <strong style="color:var(--text)">reciprocidad</strong> entre los FCI de Argenfunds y el resto del mercado:
-      quiénes invierten en los fondos de Argenfunds, y qué tiene Argenfunds en sus propias carteras.
+  <div class="filters-bar">
+    <div class="filter-group">
+      <span class="filter-label">Fecha</span>
+      <select id="rec-fecha" onchange="renderReciprocidad()"></select>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
-      <div class="filter-group">
-        <span class="filter-label">Fecha</span>
-        <select id="rec-fecha" onchange="renderReciprocidad()"></select>
-      </div>
-      <div class="filter-sep"></div>
-      <div class="filter-group">
-        <span class="filter-label">Moneda</span>
-        <select id="rec-moneda" onchange="renderReciprocidad()">
-          <option value="ARS">ARS — FCI Argenfunds Liquidez - Clase B</option>
-          <option value="USD">USD — FCI Argenfunds Liquidez Dólares - Clase B</option>
-        </select>
-      </div>
+    <div class="filter-sep"></div>
+    <div class="filter-group">
+      <span class="filter-label">Moneda</span>
+      <select id="rec-moneda" onchange="renderReciprocidad()">
+        <option value="ARS">ARS</option>
+        <option value="USD">USD</option>
+        <option value="USB">USB</option>
+      </select>
     </div>
+    <div class="filter-sep"></div>
+    <div class="filter-group">
+      <span class="filter-label">Filtrar SG Origen</span>
+      <select id="rec-sg-origen" onchange="renderReciprocidad()"><option value="">Todas</option></select>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Filtrar SG Destino</span>
+      <select id="rec-sg-destino" onchange="renderReciprocidad()"><option value="">Todas</option></select>
+    </div>
+    <div class="filter-sep"></div>
+    <button class="btn-reset" onclick="resetReciprocidad()">Limpiar</button>
   </div>
 
   <div id="rec-loading" style="display:none;text-align:center;padding:40px;color:var(--text2)">
     <div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:8px"></div>
-    <div>Cargando activos...</div>
+    <div>Cargando datos...</div>
   </div>
 
   <div id="rec-content">
-    <div class="two-col" style="margin-bottom:16px">
-
-      <!-- LADO A: quiénes invierten EN Argenfunds -->
+    <div class="full-col">
       <div class="card">
         <div class="card-header">
-          <span class="card-title" id="rec-a-title">Quién invierte en Argenfunds</span>
-          <span class="card-meta" id="rec-a-meta"></span>
+          <span class="card-title">Reciprocidad entre Sociedades Gerentes — FCI como activo</span>
+          <span class="card-meta" id="rec-meta"></span>
         </div>
-        <div class="table-wrap" style="max-height:500px">
-          <table id="rec-table-a">
-            <thead><tr>
-              <th style="text-align:left">Sociedad Gerente</th>
-              <th onclick="sortRec('a')" style="text-align:right;cursor:pointer">Monto $</th>
-              <th style="text-align:right">% del total</th>
-            </tr></thead>
-            <tbody></tbody>
+        <div class="table-wrap" style="max-height:70vh">
+          <table id="rec-table">
+            <thead id="rec-thead"></thead>
+            <tbody id="rec-tbody"></tbody>
           </table>
         </div>
-        <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
-          <span>Total invertido en Argenfunds:</span>
-          <span id="rec-a-total" style="font-family:var(--mono);font-weight:700;color:var(--text)"></span>
+        <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)">
+          Filas = Sociedad Gerente <strong>Origen</strong> (quien invierte) · Columnas = Sociedad Gerente <strong>Destino</strong> (en quién invierte) · Celdas vacías = sin inversión
         </div>
       </div>
-
-      <!-- LADO B: qué tiene Argenfunds en su cartera -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title" id="rec-b-title">Cartera de Argenfunds</span>
-          <span class="card-meta" id="rec-b-meta"></span>
-        </div>
-        <div class="table-wrap" style="max-height:500px">
-          <table id="rec-table-b">
-            <thead><tr>
-              <th style="text-align:left">Clase / Activo</th>
-              <th onclick="sortRec('b')" style="text-align:right;cursor:pointer">Monto $</th>
-              <th style="text-align:right">% cartera</th>
-            </tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
-          <span>Total cartera Argenfunds:</span>
-          <span id="rec-b-total" style="font-family:var(--mono);font-weight:700;color:var(--text)"></span>
-        </div>
-      </div>
-
     </div>
   </div>
+
 </div>
 
 </main>
@@ -718,128 +696,133 @@ function renderEspecieResult(){
 
 function sortEsp(col){espSortDir=espSortCol===col?espSortDir*-1:-1;espSortCol=col;renderEspecieResult();}
 
+
+// ══ RECIPROCIDAD ══
+let recData = null;
+let recInitDone = false;
+
+async function initReciprocidad(){
+  if(!recInitDone){
+    const sel = document.getElementById('rec-fecha');
+    DATA.fechas.forEach((d,i)=>{
+      const o = new Option(fmtDate(d), d);
+      if(i===DATA.fechas.length-1) o.selected=true;
+      sel.add(o);
+    });
+    recInitDone = true;
+  }
+  if(!recData){
+    document.getElementById('rec-loading').style.display='block';
+    document.getElementById('rec-content').style.display='none';
+    try{ await loadReciprocidad(); }catch(e){ document.getElementById('rec-loading').style.display='none'; return; }
+    document.getElementById('rec-loading').style.display='none';
+    document.getElementById('rec-content').style.display='block';
+  }
+  renderReciprocidad();
+}
+
+function loadReciprocidad(){
+  return new Promise((resolve,reject)=>{
+    if(recData){resolve();return;}
+    const s=document.createElement('script');s.src='reciprocidad.js';
+    s.onload=()=>{recData=RECIP;resolve();};
+    s.onerror=()=>reject();
+    document.head.appendChild(s);
+  });
+}
+
+function renderReciprocidad(){
+  if(!recData) return;
+  const fecha  = document.getElementById('rec-fecha').value;
+  const moneda = document.getElementById('rec-moneda').value;
+  const sgOFil = document.getElementById('rec-sg-origen').value;
+  const sgDFil = document.getElementById('rec-sg-destino').value;
+
+  const fechaData = recData[fecha] || {};
+  const monedaData = fechaData[moneda] || {};
+
+  // Parse into {origen: {destino: monto}}
+  const matrix = {};
+  const allOrigenes = new Set();
+  const allDestinos = new Set();
+
+  for(const [key, monto] of Object.entries(monedaData)){
+    const [o, d] = key.split('||');
+    allOrigenes.add(o); allDestinos.add(d);
+    if(!matrix[o]) matrix[o] = {};
+    matrix[o][d] = (matrix[o][d]||0) + monto;
+  }
+
+  // Apply filters
+  const origenes = [...allOrigenes].filter(o=>!sgOFil||o===sgOFil).sort();
+  const destinos = [...allDestinos].filter(d=>!sgDFil||d===sgDFil).sort();
+
+  // Populate SG selectors (first render)
+  const selO = document.getElementById('rec-sg-origen');
+  const selD = document.getElementById('rec-sg-destino');
+  if(selO.options.length <= 1){
+    [...allOrigenes].sort().forEach(sg=>selO.add(new Option(sg,sg)));
+    [...allDestinos].sort().forEach(sg=>selD.add(new Option(sg,sg)));
+  }
+
+  document.getElementById('rec-meta').textContent = `${origenes.length} SG origen × ${destinos.length} SG destino · ${fmtDate(fecha)} · ${moneda}`;
+
+  // Build header
+  const thead = document.getElementById('rec-thead');
+  thead.innerHTML = `<tr>
+    <th style="text-align:left;position:sticky;left:0;z-index:3;background:var(--surface2);min-width:140px">Origen \ Destino</th>
+    ${destinos.map(d=>`<th style="text-align:right;white-space:nowrap">${d}</th>`).join('')}
+    <th style="text-align:right;background:rgba(88,166,255,.08);color:var(--accent)">Total Origen</th>
+  </tr>`;
+
+  // Build rows
+  // Row totals and column totals
+  const colTotals = {};
+  destinos.forEach(d=>colTotals[d]=0);
+  let grandTotal = 0;
+
+  const rows = origenes.map(o=>{
+    let rowTotal = 0;
+    const cells = destinos.map(d=>{
+      const v = (matrix[o]&&matrix[o][d])||0;
+      colTotals[d] += v;
+      rowTotal += v;
+      grandTotal += v;
+      return v;
+    });
+    return {o, cells, rowTotal};
+  }).filter(r=>r.rowTotal>0 || !sgOFil);
+
+  const tbody = document.getElementById('rec-tbody');
+  tbody.innerHTML = rows.map(({o,cells,rowTotal})=>`
+    <tr>
+      <td style="font-weight:600;color:var(--accent);position:sticky;left:0;background:var(--surface);z-index:1;white-space:nowrap">${o}</td>
+      ${cells.map(v=>v>0
+        ? `<td style="text-align:right;font-family:var(--mono)">${fmtNum(v)}</td>`
+        : `<td style="color:var(--text3);text-align:center">—</td>`
+      ).join('')}
+      <td style="text-align:right;font-family:var(--mono);font-weight:700;background:rgba(88,166,255,.06);color:var(--accent)">${fmtNum(rowTotal)}</td>
+    </tr>
+  `).join('') + `
+    <tr style="border-top:2px solid var(--border)">
+      <td style="font-weight:700;color:var(--text2);position:sticky;left:0;background:var(--surface2);z-index:1">Total Destino</td>
+      ${destinos.map(d=>`<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--accent2)">${fmtNum(colTotals[d])}</td>`).join('')}
+      <td style="text-align:right;font-family:var(--mono);font-weight:700;background:rgba(88,166,255,.1);color:var(--accent)">${fmtNum(grandTotal)}</td>
+    </tr>`;
+}
+
+function resetReciprocidad(){
+  document.getElementById('rec-sg-origen').value='';
+  document.getElementById('rec-sg-destino').value='';
+  renderReciprocidad();
+}
+
 // ══ PANEL ══
 function switchPanel(p){
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+p).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['posicion','especie','reciprocidad'][i]===p));
   if(p==='reciprocidad') initReciprocidad();
-}
-
-// ══ RECIPROCIDAD ══
-let recSortA=-1, recSortB=-1; // -1 = desc by monto
-let recInitialized=false;
-
-function initReciprocidad(){
-  if(!recInitialized){
-    // Populate fecha selector
-    const sel=document.getElementById('rec-fecha');
-    DATA.fechas.forEach((d,i)=>{
-      const o=new Option(fmtDate(d),d);
-      if(i===DATA.fechas.length-1)o.selected=true;
-      sel.add(o);
-    });
-    recInitialized=true;
-  }
-  renderReciprocidad();
-}
-
-async function renderReciprocidad(){
-  document.getElementById('rec-loading').style.display='block';
-  document.getElementById('rec-content').style.display='none';
-  try{ await loadActivos(); }catch(e){ document.getElementById('rec-loading').style.display='none'; return; }
-  document.getElementById('rec-loading').style.display='none';
-  document.getElementById('rec-content').style.display='block';
-
-  const fecha  = document.getElementById('rec-fecha').value;
-  const moneda = document.getElementById('rec-moneda').value;
-  const fi     = DATA.fechas.indexOf(fecha);
-  const A      = ACTIVOS;
-
-  // ── LADO A: quién tiene FCI Argenfunds como activo ──
-  // Los activos de referencia según moneda
-  const activoLabel = moneda==='ARS'
-    ? 'FCI Argenfunds Liquidez - Clase B'
-    : 'FCI Argenfunds Liquidez Dólares - Clase B';
-
-  // Buscar el ek que corresponde a ese activo
-  const matchEkIdxs = A.eks.reduce((acc,ek,i)=>{
-    const al = A.lookup[i]?A.lookup[i][0]:'';
-    if(al===activoLabel) acc.push(i);
-    return acc;
-  },[]);
-
-  const matchSet = new Set(matchEkIdxs);
-  const fechaRows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r=>r[0]===fi);
-
-  // Filtrar por moneda también
-  const moIdx = A.mos.indexOf(moneda);
-  const activoRows = fechaRows.filter(r=>matchSet.has(r[1]) && (moIdx<0||r[4]===moIdx));
-
-  // Agrupar por SG
-  const bySG={};
-  activoRows.forEach(r=>{
-    const sg=A.sgs[r[2]]||'(sin SG)';
-    bySG[sg]=(bySG[sg]||0)+r[5];
-  });
-
-  const totalA = Object.values(bySG).reduce((s,v)=>s+v,0);
-  let sgList = Object.entries(bySG).sort((a,b)=>(b[1]-a[1])*recSortA*-1);
-
-  document.getElementById('rec-a-title').textContent=`Quién invierte en: ${activoLabel}`;
-  document.getElementById('rec-a-meta').textContent=`${sgList.length} SG · ${fmtDate(fecha)}`;
-  document.getElementById('rec-a-total').textContent=`${fmtNum(totalA)} ${moneda}`;
-
-  document.querySelector('#rec-table-a tbody').innerHTML = sgList.length
-    ? sgList.map(([sg,m])=>{
-        const pct=totalA>0?(m/totalA*100).toFixed(1):'0.0';
-        return `<tr>
-          <td style="font-weight:600;color:var(--accent)">${sg}</td>
-          <td style="text-align:right;font-family:var(--mono)">${fmtNum(m)}</td>
-          <td style="text-align:right;color:var(--text2)">${pct}%</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="3" style="text-align:center;padding:30px;color:var(--text3)">Sin tenencias para esta moneda y fecha</td></tr>`;
-
-  // ── LADO B: qué tiene Argenfunds en su cartera ──
-  // Fondos de Argenfunds
-  const argenfundsFoIdxs = new Set(
-    A.fos.map((f,i)=>f.toLowerCase().includes('argenfunds')?i:-1).filter(i=>i>=0)
-  );
-
-  const argRows = fechaRows.filter(r=>argenfundsFoIdxs.has(r[3]) && (moIdx<0||r[4]===moIdx));
-
-  // Agrupar por Clase
-  const byClase={};
-  argRows.forEach(r=>{
-    const lkp=A.lookup[r[1]];
-    const cl=lkp?lkp[1]:'Otros';
-    byClase[cl]=(byClase[cl]||0)+r[5];
-  });
-
-  const totalB=Object.values(byClase).reduce((s,v)=>s+v,0);
-  let claseList=Object.entries(byClase).sort((a,b)=>(b[1]-a[1])*recSortB*-1);
-
-  document.getElementById('rec-b-title').textContent=`Cartera Argenfunds en ${moneda}`;
-  document.getElementById('rec-b-meta').textContent=`${claseList.length} clases · ${fmtDate(fecha)}`;
-  document.getElementById('rec-b-total').textContent=`${fmtNum(totalB)} ${moneda}`;
-
-  document.querySelector('#rec-table-b tbody').innerHTML = claseList.length
-    ? claseList.map(([cl,m])=>{
-        const pct=totalB>0?(m/totalB*100).toFixed(1):'0.0';
-        return `<tr>
-          <td style="color:var(--text)">${cl}</td>
-          <td style="text-align:right;font-family:var(--mono)">${fmtNum(m)}</td>
-          <td style="text-align:right;color:var(--text2)">${pct}%</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="3" style="text-align:center;padding:30px;color:var(--text3)">Sin cartera para esta moneda y fecha</td></tr>`;
-}
-
-function sortRec(side){
-  if(side==='a'){ recSortA*=-1; }
-  else { recSortB*=-1; }
-  renderReciprocidad();
 }
 
 // ══ RESET ══
