@@ -117,6 +117,7 @@
   <div class="header-tabs">
     <button class="tab-btn active" onclick="switchPanel('posicion')">Posición</button>
     <button class="tab-btn" onclick="switchPanel('especie')">Por Especie</button>
+    <button class="tab-btn" onclick="switchPanel('reciprocidad')">Reciprocidad</button>
   </div>
   <div class="header-right"><span class="badge" id="badge-dates"></span></div>
 </header>
@@ -169,8 +170,7 @@
             <th style="text-align:left">Soc. Gerente / Fondo</th>
             <th onclick="sortPos(1)">Moneda</th>
             <th onclick="sortPos(2)">Monto $</th>
-            <th onclick="sortPos(3)" id="th-delta-pos" style="color:var(--text3)">Δ anterior</th>
-            <th onclick="sortPos(4)">% del Total</th>
+            <th onclick="sortPos(3)">% del Total</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -268,6 +268,86 @@
     <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)" id="cart-footer"></div>
   </div>
 </div>
+<!-- ═══ RECIPROCIDAD ═══ -->
+<div id="panel-reciprocidad" class="panel">
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:20px;">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6">
+      Este panel muestra la <strong style="color:var(--text)">reciprocidad</strong> entre los FCI de Argenfunds y el resto del mercado:
+      quiénes invierten en los fondos de Argenfunds, y qué tiene Argenfunds en sus propias carteras.
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
+      <div class="filter-group">
+        <span class="filter-label">Fecha</span>
+        <select id="rec-fecha" onchange="renderReciprocidad()"></select>
+      </div>
+      <div class="filter-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label">Moneda</span>
+        <select id="rec-moneda" onchange="renderReciprocidad()">
+          <option value="ARS">ARS — FCI Argenfunds Liquidez - Clase B</option>
+          <option value="USD">USD — FCI Argenfunds Liquidez Dólares - Clase B</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div id="rec-loading" style="display:none;text-align:center;padding:40px;color:var(--text2)">
+    <div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:8px"></div>
+    <div>Cargando activos...</div>
+  </div>
+
+  <div id="rec-content">
+    <div class="two-col" style="margin-bottom:16px">
+
+      <!-- LADO A: quiénes invierten EN Argenfunds -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="rec-a-title">Quién invierte en Argenfunds</span>
+          <span class="card-meta" id="rec-a-meta"></span>
+        </div>
+        <div class="table-wrap" style="max-height:500px">
+          <table id="rec-table-a">
+            <thead><tr>
+              <th style="text-align:left">Sociedad Gerente</th>
+              <th onclick="sortRec('a')" style="text-align:right;cursor:pointer">Monto $</th>
+              <th style="text-align:right">% del total</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
+          <span>Total invertido en Argenfunds:</span>
+          <span id="rec-a-total" style="font-family:var(--mono);font-weight:700;color:var(--text)"></span>
+        </div>
+      </div>
+
+      <!-- LADO B: qué tiene Argenfunds en su cartera -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="rec-b-title">Cartera de Argenfunds</span>
+          <span class="card-meta" id="rec-b-meta"></span>
+        </div>
+        <div class="table-wrap" style="max-height:500px">
+          <table id="rec-table-b">
+            <thead><tr>
+              <th style="text-align:left">Clase / Activo</th>
+              <th onclick="sortRec('b')" style="text-align:right;cursor:pointer">Monto $</th>
+              <th style="text-align:right">% cartera</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div style="padding:10px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
+          <span>Total cartera Argenfunds:</span>
+          <span id="rec-b-total" style="font-family:var(--mono);font-weight:700;color:var(--text)"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 </main>
 
 <script>
@@ -341,82 +421,58 @@ function renderPosicion(){
   const monedaFil=document.getElementById('pos-moneda').value;
   const clase=document.getElementById('pos-clase').value;
   const activoEk=posActivoEkFilter;
-  const dates=DATA.fechas;
-  const prevDate=dates[dates.indexOf(fecha)-1];
 
-  // ── Build current period data ──
+  // ── Modo activo: usamos ACTIVOS.rows para montos exactos del activo ──
   const modoActivo = activoEk && activosLoaded;
   const modoClase  = clase && !activoEk && activosLoaded;
-  let bySGFull={};
 
-  function buildFromActivos(fechaKey, ek, cl, sgF, foF, moF){
+  let bySGFull={};  // { sg: { total, fondos: { fo: { total, mo } } } }
+
+  if(modoActivo || modoClase){
     const A=ACTIVOS;
-    const fi=DATA.fechas.indexOf(fechaKey);
+    const fi=DATA.fechas.indexOf(fecha);
     let aRows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r=>r[0]===fi);
-    if(ek) aRows=aRows.filter(r=>A.eks[r[1]]===ek);
-    else if(cl) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===cl;});
-    if(sgF){const si=A.sgs.indexOf(sgF);aRows=aRows.filter(r=>r[2]===si);}
-    if(foF){const foi=A.fos.indexOf(foF);aRows=aRows.filter(r=>r[3]===foi);}
-    if(moF){const mi=A.mos.indexOf(moF);aRows=aRows.filter(r=>r[4]===mi);}
-    const out={};
+
+    if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
+    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});
+
+    if(sgFil){const si=A.sgs.indexOf(sgFil);aRows=aRows.filter(r=>r[2]===si);}
+    if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
+    if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRows=aRows.filter(r=>r[4]===mi);}
+
     aRows.forEach(r=>{
       const sg=A.sgs[r[2]]||'(sin SG)';
-      const fo=A.fos[r[3]]; const mo=A.mos[r[4]]; const m=r[5];
-      if(!out[sg])out[sg]={total:0,fondos:{}};
-      out[sg].total+=m;
-      if(!out[sg].fondos[fo])out[sg].fondos[fo]={total:0,mo};
-      out[sg].fondos[fo].total+=m;
+      const fo=A.fos[r[3]];
+      const mo=A.mos[r[4]];
+      const m=r[5];
+      if(!bySGFull[sg])bySGFull[sg]={total:0,fondos:{}};
+      bySGFull[sg].total+=m;
+      if(!bySGFull[sg].fondos[fo])bySGFull[sg].fondos[fo]={total:0,mo};
+      bySGFull[sg].fondos[fo].total+=m;
     });
-    return out;
-  }
-
-  function buildFromPosicion(fechaKey, sgF, foF, moF){
-    let rows=DATA.posicion.filter(r=>r.Fecha===fechaKey);
-    if(sgF) rows=rows.filter(r=>r['Sociedad Gerente']===sgF);
-    if(foF) rows=rows.filter(r=>r.Fondo===foF);
-    if(moF) rows=rows.filter(r=>r.Moneda===moF);
-    const out={};
+  } else {
+    // Modo normal: usamos DATA.posicion (totales por fondo)
+    let rows=DATA.posicion.filter(r=>r.Fecha===fecha);
+    if(sgFil) rows=rows.filter(r=>r['Sociedad Gerente']===sgFil);
+    if(fondoFil) rows=rows.filter(r=>r.Fondo===fondoFil);
+    if(monedaFil) rows=rows.filter(r=>r.Moneda===monedaFil);
     rows.forEach(r=>{
       const sg=r['Sociedad Gerente']||'(sin SG)';
-      if(!out[sg])out[sg]={total:0,fondos:{}};
-      out[sg].total+=r['Monto $'];
-      if(!out[sg].fondos[r.Fondo])out[sg].fondos[r.Fondo]={total:0,mo:r.Moneda};
-      out[sg].fondos[r.Fondo].total+=r['Monto $'];
+      if(!bySGFull[sg])bySGFull[sg]={total:0,fondos:{}};
+      bySGFull[sg].total+=r['Monto $'];
+      if(!bySGFull[sg].fondos[r.Fondo])bySGFull[sg].fondos[r.Fondo]={total:0,mo:r.Moneda};
+      bySGFull[sg].fondos[r.Fondo].total+=r['Monto $'];
     });
-    return out;
-  }
-
-  if(modoActivo||modoClase){
-    bySGFull=buildFromActivos(fecha,activoEk,clase,sgFil,fondoFil,monedaFil);
-  } else {
-    bySGFull=buildFromPosicion(fecha,sgFil,fondoFil,monedaFil);
-  }
-
-  // ── Build prev period data for delta ──
-  let bySGPrev={};
-  if(prevDate){
-    if(modoActivo||modoClase){
-      bySGPrev=buildFromActivos(prevDate,activoEk,clase,sgFil,fondoFil,monedaFil);
-    } else {
-      bySGPrev=buildFromPosicion(prevDate,sgFil,fondoFil,monedaFil);
-    }
   }
 
   const total=Object.values(bySGFull).reduce((s,d)=>s+d.total,0);
   const fondosCount=Object.values(bySGFull).reduce((s,d)=>s+Object.keys(d.fondos).length,0);
   const sgsCount=Object.keys(bySGFull).length;
 
-  // Update header to show prev date
-  const thDelta=document.getElementById('th-delta-pos');
-  if(thDelta) thDelta.textContent=prevDate?`Δ vs ${fmtDateShort(prevDate)}`:'Δ anterior';
-
   // KPI
   const kpiLabel = activoEk ? `Tenencia "${posActivoEkFilter}"` : 'Patrimonio Total';
-  const totalPrev=Object.values(bySGPrev).reduce((s,d)=>s+d.total,0);
-  let deltaHtml='';
-  if(totalPrev>0){const d=(total-totalPrev)/totalPrev*100;deltaHtml=`<span class="kpi-delta ${d>=0?'up':'dn'}">${d>=0?'+':''}${d.toFixed(2)}% vs anterior</span>`;}
   document.getElementById('kpi-posicion').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">${kpiLabel}</div><div class="kpi-value">${fmtBig(total)}</div><div class="kpi-sub">${fmtDate(fecha)}</div>${deltaHtml}</div>
+    <div class="kpi-card"><div class="kpi-label">${kpiLabel}</div><div class="kpi-value">${fmtBig(total)}</div><div class="kpi-sub">${fmtDate(fecha)}</div></div>
     <div class="kpi-card"><div class="kpi-label">Fondos</div><div class="kpi-value">${fondosCount}</div></div>
     <div class="kpi-card"><div class="kpi-label">Soc. Gerentes</div><div class="kpi-value">${sgsCount||'—'}</div></div>`;
 
@@ -426,44 +482,34 @@ function renderPosicion(){
   const sgE=Object.entries(bySGChart).sort((a,b)=>b[1]-a[1]).slice(0,12);
   document.getElementById('pie-meta').textContent=`${sgE.length} SG`;
   renderChart('chart-pie-sg','doughnut',{labels:sgE.map(e=>e[0]||'(sin SG)'),datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
+
   const byFChart={};
   Object.values(bySGFull).forEach(d=>Object.entries(d.fondos).forEach(([fo,fd])=>byFChart[fo]=(byFChart[fo]||0)+fd.total));
   const topF=Object.entries(byFChart).sort((a,b)=>b[1]-a[1]).slice(0,15);
   document.getElementById('bar-meta').textContent=`top 15 de ${Object.keys(byFChart).length}`;
   renderChart('chart-bar-fondos','bar',{labels:topF.map(e=>e[0].length>28?e[0].slice(0,27)+'…':e[0]),datasets:[{data:topF.map(e=>e[1]),backgroundColor:'rgba(88,166,255,.7)',borderRadius:4}]},{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${fmtBig(ctx.raw)}`}}},scales:{x:{ticks:{color:'#8b949e',callback:v=>fmtBig(v)},grid:{color:'#30363d'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{display:false}}}});
 
-  // Tabla agrupada SG → Fondos con delta
+  // Tabla agrupada SG → Fondos
   let sgList=Object.entries(bySGFull).sort((a,b)=>(b[1].total-a[1].total)*posSortDir);
   document.getElementById('table-pos-meta').textContent=`${sgsCount} SG · ${fondosCount} fondos`;
-
-  function deltaCell(curr,prev){
-    if(!prev||prev===0) return prevDate?`<td style="color:var(--text3);text-align:right;font-family:var(--mono)">nuevo</td>`:`<td></td>`;
-    const d=(curr-prev)/prev*100;
-    return `<td style="text-align:right;font-family:var(--mono)" class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${d.toFixed(1)}%</td>`;
-  }
 
   const tbody=document.querySelector('#table-posicion tbody');
   let html='';
   sgList.forEach(([sg,data])=>{
     const pct=total>0?(data.total/total*100).toFixed(1):'0.0';
-    const prevSG=bySGPrev[sg]?bySGPrev[sg].total:0;
     const isExp=!!expandedSGs.pos[sg];
     html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
       <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
       <td></td>
       <td>${fmtNum(data.total)}</td>
-      ${deltaCell(data.total,prevSG)}
       <td>${pct}%</td>
     </tr>`;
     Object.entries(data.fondos).sort((a,b)=>b[1].total-a[1].total).forEach(([fo,fd])=>{
       const fpct=total>0?(fd.total/total*100).toFixed(2):'0.00';
-      const prevFo=bySGPrev[sg]&&bySGPrev[sg].fondos[fo]?bySGPrev[sg].fondos[fo].total:0;
-      const isNewFondo = prevDate && prevFo===0;
       html+=`<tr class="fondo-row ${isExp?'':'hidden'}" style="cursor:pointer" onclick="openCartera('${esc(fo)}','${fecha}','${esc(sg)}')">
-        <td style="color:var(--accent4)">${fo}${isNewFondo?'<span style="font-size:10px;margin-left:6px;padding:1px 5px;border-radius:3px;background:rgba(63,185,80,.2);color:var(--accent2)">nuevo</span>':''}</td>
+        <td style="color:var(--accent4)">${fo}</td>
         <td><span class="moneda-pill">${fd.mo}</span></td>
         <td>${fmtNum(fd.total)}</td>
-        ${deltaCell(fd.total,prevFo)}
         <td>${fpct}%</td>
       </tr>`;
     });
@@ -572,77 +618,45 @@ function renderEspecieResult(){
   const A=ACTIVOS;
   let rows=especieRows;
   if(sgFil){const si=A.sgs.indexOf(sgFil);rows=rows.filter(r=>r[2]===si);}
-  if(foFil){const foi=A.fos.indexOf(foFil);rows=rows.filter(r=>r[3]===foi);}
+  if(foFil){const fi=A.fos.indexOf(foFil);rows=rows.filter(r=>r[3]===fi);}
   if(moFil){const mi=A.mos.indexOf(moFil);rows=rows.filter(r=>r[4]===mi);}
 
   const dates=DATA.fechas;
   const n=dates.length;
   const lastFi=n-1;
-  const firstFi=0;
   const lastRows=rows.filter(r=>r[0]===lastFi);
-  const firstRows=rows.filter(r=>r[0]===firstFi);
   const totalLast=lastRows.reduce((s,r)=>s+r[5],0);
-  const totalFirst=firstRows.reduce((s,r)=>s+r[5],0);
-  const fondosLast=new Set(lastRows.map(r=>r[3]));
-  const fondosFirst=new Set(firstRows.map(r=>r[3]));
-  const fondosCount=fondosLast.size;
+  const fondosCount=new Set(lastRows.map(r=>r[3])).size;
   const sgsCount=new Set(lastRows.map(r=>r[2])).size;
 
-  // Entradas/salidas entre primera y última fecha
-  const entraron=[...fondosLast].filter(f=>!fondosFirst.has(f)).length;
-  const salieron=[...fondosFirst].filter(f=>!fondosLast.has(f)).length;
-  const deltaTotalPct=totalFirst>0?((totalLast-totalFirst)/totalFirst*100):null;
-
-  // Total de mercado de esta especie (sin filtros de SG/Fondo) para % concentración
-  const totalMercado=especieRows.filter(r=>r[0]===lastFi).reduce((s,r)=>s+r[5],0);
-  const concPct=totalMercado>0?(totalLast/totalMercado*100):null;
-
-  let deltaKpiHtml='';
-  if(deltaTotalPct!==null){
-    const cls=deltaTotalPct>=0?'up':'dn';
-    deltaKpiHtml=`<span class="kpi-delta ${cls}">${deltaTotalPct>=0?'+':''}${deltaTotalPct.toFixed(2)}% período</span>`;
-  }
-
   document.getElementById('kpi-especie').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Tenencia Total (${fmtDate(dates[lastFi])})</div><div class="kpi-value">${fmtBig(totalLast)}</div>${deltaKpiHtml}</div>
-    <div class="kpi-card"><div class="kpi-label">Fondos</div><div class="kpi-value">${fondosCount}</div>
-      ${entraron>0?`<div class="kpi-sub"><span style="color:var(--accent2)">+${entraron} entraron</span>${salieron>0?` · <span style="color:var(--accent3)">${salieron} salieron</span>`:''}</div>`:''}
-      ${salieron>0&&entraron===0?`<div class="kpi-sub"><span style="color:var(--accent3)">${salieron} salieron</span></div>`:''}
-    </div>
-    <div class="kpi-card"><div class="kpi-label">Soc. Gerentes</div><div class="kpi-value">${sgsCount}</div>
-      ${concPct!==null&&!sgFil?`<div class="kpi-sub" style="font-size:12px">Concentración: <strong style="color:var(--accent)">${concPct.toFixed(1)}%</strong> del mercado</div>`:''}
-    </div>`;
+    <div class="kpi-card"><div class="kpi-label">Tenencia Total (${fmtDate(dates[lastFi])})</div><div class="kpi-value">${fmtBig(totalLast)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Fondos que la tienen</div><div class="kpi-value">${fondosCount}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Soc. Gerentes</div><div class="kpi-value">${sgsCount}</div></div>`;
 
-  // Pie SG — concentración por SG sobre el total de mercado
+  // Pie SG
   const bySG={};
   lastRows.forEach(r=>{const k=A.sgs[r[2]]||'(sin SG)';bySG[k]=(bySG[k]||0)+r[5];});
   const sgE=Object.entries(bySG).sort((a,b)=>b[1]-a[1]).slice(0,12);
   document.getElementById('pie-esp-meta').textContent=`${sgE.length} SG`;
-  renderChart('chart-esp-sg','doughnut',{
-    labels:sgE.map(e=>e[0]),
-    datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]
-  },{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},
-    tooltip:{callbacks:{label:ctx=>{
-      const pct=totalMercado>0?(ctx.raw/totalMercado*100).toFixed(1):'—';
-      return ` ${ctx.label}: ${fmtBig(ctx.raw)} (${pct}% mercado)`;
-    }}}}});
+  renderChart('chart-esp-sg','doughnut',{labels:sgE.map(e=>e[0]),datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
 
   // Evo total
   const evoData=dates.map((_,fi)=>rows.filter(r=>r[0]===fi).reduce((s,r)=>s+r[5],0));
   renderChart('chart-esp-evo','line',{labels:dates.map(fmtDate),datasets:[{label:currentEspecie,data:evoData,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.1)',fill:true,tension:.3,pointRadius:5}]},lineOpts());
 
-  // Header
+  // Build header: Nombre | d0 | Δ% | d1 | Δ% | d2 | Δ% total
+  // Columns: col 0=name, col 1..n=date vals, col n+1..(2n-1)=deltas between consecutive, col 2n=total delta
   const thead=document.getElementById('esp-thead');
-  let thHtml=`<tr><th style="text-align:left;cursor:default">Soc. Gerente / Fondo</th><th style="cursor:default;color:var(--text3)">Estado</th>`;
+  let thHtml=`<tr><th style="text-align:left;cursor:default">Soc. Gerente / Fondo</th>`;
   dates.forEach((d,i)=>{
     thHtml+=`<th onclick="sortEsp(${i+1})">${fmtDate(d)}</th>`;
-    if(i<n-1) thHtml+=`<th style="cursor:default;color:var(--text3)">Δ</th>`;
+    if(i<n-1) thHtml+=`<th style="cursor:default;color:var(--text3)">Δ ${fmtDateShort(dates[i])}→${fmtDateShort(dates[i+1])}</th>`;
   });
-  thHtml+=`<th onclick="sortEsp(${n+1})">Δ Total</th><th style="cursor:default;color:var(--text3)">% mercado</th></tr>`;
+  thHtml+=`<th onclick="sortEsp(${n+1})">Δ Total</th></tr>`;
   thead.innerHTML=thHtml;
 
-  // Group by SG (todos los fondos, todas las fechas)
-  const allFoIdxs=new Set(especieRows.map(r=>r[3]));  // para detectar si un fondo está en el mercado
+  // Group by SG
   const sgGroups={};
   rows.forEach(r=>{
     const sg=A.sgs[r[2]]||'(sin SG)';
@@ -666,33 +680,15 @@ function renderEspecieResult(){
 
   document.getElementById('table-esp-meta').textContent=`${sgList.length} SG · ${fondosCount} fondos`;
 
-  function dCell(v0,v1){
-    if(!v0&&!v1)return`<td style="color:var(--text3)">—</td>`;
-    if(!v0)return`<td style="color:var(--accent2);font-size:10px">entró</td>`;
-    if(!v1)return`<td style="color:var(--accent3);font-size:10px">salió</td>`;
+  function deltaHtml(v0,v1){
+    if(!v0)return`<td style="color:var(--text3)">—</td>`;
     const d=(v1-v0)/v0*100;
-    return`<td style="font-family:var(--mono);text-align:right" class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${d.toFixed(1)}%</td>`;
+    return`<td class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${d.toFixed(2)}%</td>`;
   }
-  function totalDeltaCell(vals){
-    const first=vals[0], last=vals[n-1];
-    if(!first&&!last)return`<td style="color:var(--text3)">—</td>`;
-    if(!first)return`<td style="color:var(--accent2);font-size:10px">nuevo</td>`;
-    if(!last)return`<td style="color:var(--accent3);font-size:10px">salió</td>`;
-    const d=(last-first)/first*100;
-    return`<td style="font-family:var(--mono);text-align:right" class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${d.toFixed(1)}%</td>`;
-  }
-  function estadoTag(vals){
-    const first=vals[0], last=vals[n-1];
-    if(!first&&last)return`<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(63,185,80,.2);color:var(--accent2)">entró</span>`;
-    if(first&&!last)return`<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(247,129,102,.2);color:var(--accent3)">salió</span>`;
-    const d=first>0?(last-first)/first*100:0;
-    if(d>5)return`<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(63,185,80,.15);color:var(--accent2)">↑ aumentó</span>`;
-    if(d<-5)return`<span style="font-size:10px;padding:1px 5px;border-radius:3px;background:rgba(247,129,102,.15);color:var(--accent3)">↓ bajó</span>`;
-    return`<span style="font-size:10px;color:var(--text3)">estable</span>`;
-  }
-  function mktPct(v){
-    if(!totalMercado||!v)return`<td style="color:var(--text3)">—</td>`;
-    return`<td style="font-family:var(--mono);text-align:right;color:var(--text2)">${(v/totalMercado*100).toFixed(2)}%</td>`;
+  function totalDelta(vals){
+    if(!vals[0])return`<td style="color:var(--text3)">—</td>`;
+    const d=(vals[n-1]-vals[0])/vals[0]*100;
+    return`<td class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${d.toFixed(2)}%</td>`;
   }
 
   const tbody=document.querySelector('#table-especie tbody');
@@ -700,23 +696,21 @@ function renderEspecieResult(){
   sgList.forEach(([sg,gd])=>{
     const isExp=!!expandedSGs.esp[sg];
     html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('esp','${esc(sg)}')">
-      <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
-      <td>${estadoTag(gd.vals)}</td>`;
+      <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>`;
     gd.vals.forEach((v,i)=>{
-      html+=`<td style="font-family:var(--mono);text-align:right">${v?fmtNum(v):'—'}</td>`;
-      if(i<n-1)html+=dCell(gd.vals[i],gd.vals[i+1]);
+      html+=`<td>${fmtNum(v)}</td>`;
+      if(i<n-1) html+=deltaHtml(gd.vals[i],gd.vals[i+1]);
     });
-    html+=totalDeltaCell(gd.vals)+mktPct(gd.vals[lastFi])+'</tr>';
+    html+=totalDelta(gd.vals)+'</tr>';
 
+    // Fondo rows
     Object.entries(gd.fondos).sort((a,b)=>b[1].vals[lastFi]-a[1].vals[lastFi]).forEach(([fo,fd])=>{
-      html+=`<tr class="fondo-row ${isExp?'':'hidden'}">
-        <td>${fo}</td>
-        <td>${estadoTag(fd.vals)}</td>`;
+      html+=`<tr class="fondo-row ${isExp?'':'hidden'}"><td>${fo}</td>`;
       fd.vals.forEach((v,i)=>{
-        html+=`<td style="font-family:var(--mono);text-align:right">${v?fmtNum(v):'—'}</td>`;
-        if(i<n-1)html+=dCell(fd.vals[i],fd.vals[i+1]);
+        html+=`<td>${v?fmtNum(v):'—'}</td>`;
+        if(i<n-1) html+=deltaHtml(fd.vals[i],fd.vals[i+1]);
       });
-      html+=totalDeltaCell(fd.vals)+mktPct(fd.vals[lastFi])+'</tr>';
+      html+=totalDelta(fd.vals)+'</tr>';
     });
   });
   tbody.innerHTML=html;
@@ -728,7 +722,124 @@ function sortEsp(col){espSortDir=espSortCol===col?espSortDir*-1:-1;espSortCol=co
 function switchPanel(p){
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+p).classList.add('active');
-  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['posicion','especie'][i]===p));
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['posicion','especie','reciprocidad'][i]===p));
+  if(p==='reciprocidad') initReciprocidad();
+}
+
+// ══ RECIPROCIDAD ══
+let recSortA=-1, recSortB=-1; // -1 = desc by monto
+let recInitialized=false;
+
+function initReciprocidad(){
+  if(!recInitialized){
+    // Populate fecha selector
+    const sel=document.getElementById('rec-fecha');
+    DATA.fechas.forEach((d,i)=>{
+      const o=new Option(fmtDate(d),d);
+      if(i===DATA.fechas.length-1)o.selected=true;
+      sel.add(o);
+    });
+    recInitialized=true;
+  }
+  renderReciprocidad();
+}
+
+async function renderReciprocidad(){
+  document.getElementById('rec-loading').style.display='block';
+  document.getElementById('rec-content').style.display='none';
+  try{ await loadActivos(); }catch(e){ document.getElementById('rec-loading').style.display='none'; return; }
+  document.getElementById('rec-loading').style.display='none';
+  document.getElementById('rec-content').style.display='block';
+
+  const fecha  = document.getElementById('rec-fecha').value;
+  const moneda = document.getElementById('rec-moneda').value;
+  const fi     = DATA.fechas.indexOf(fecha);
+  const A      = ACTIVOS;
+
+  // ── LADO A: quién tiene FCI Argenfunds como activo ──
+  // Los activos de referencia según moneda
+  const activoLabel = moneda==='ARS'
+    ? 'FCI Argenfunds Liquidez - Clase B'
+    : 'FCI Argenfunds Liquidez Dólares - Clase B';
+
+  // Buscar el ek que corresponde a ese activo
+  const matchEkIdxs = A.eks.reduce((acc,ek,i)=>{
+    const al = A.lookup[i]?A.lookup[i][0]:'';
+    if(al===activoLabel) acc.push(i);
+    return acc;
+  },[]);
+
+  const matchSet = new Set(matchEkIdxs);
+  const fechaRows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r=>r[0]===fi);
+
+  // Filtrar por moneda también
+  const moIdx = A.mos.indexOf(moneda);
+  const activoRows = fechaRows.filter(r=>matchSet.has(r[1]) && (moIdx<0||r[4]===moIdx));
+
+  // Agrupar por SG
+  const bySG={};
+  activoRows.forEach(r=>{
+    const sg=A.sgs[r[2]]||'(sin SG)';
+    bySG[sg]=(bySG[sg]||0)+r[5];
+  });
+
+  const totalA = Object.values(bySG).reduce((s,v)=>s+v,0);
+  let sgList = Object.entries(bySG).sort((a,b)=>(b[1]-a[1])*recSortA*-1);
+
+  document.getElementById('rec-a-title').textContent=`Quién invierte en: ${activoLabel}`;
+  document.getElementById('rec-a-meta').textContent=`${sgList.length} SG · ${fmtDate(fecha)}`;
+  document.getElementById('rec-a-total').textContent=`${fmtNum(totalA)} ${moneda}`;
+
+  document.querySelector('#rec-table-a tbody').innerHTML = sgList.length
+    ? sgList.map(([sg,m])=>{
+        const pct=totalA>0?(m/totalA*100).toFixed(1):'0.0';
+        return `<tr>
+          <td style="font-weight:600;color:var(--accent)">${sg}</td>
+          <td style="text-align:right;font-family:var(--mono)">${fmtNum(m)}</td>
+          <td style="text-align:right;color:var(--text2)">${pct}%</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="3" style="text-align:center;padding:30px;color:var(--text3)">Sin tenencias para esta moneda y fecha</td></tr>`;
+
+  // ── LADO B: qué tiene Argenfunds en su cartera ──
+  // Fondos de Argenfunds
+  const argenfundsFoIdxs = new Set(
+    A.fos.map((f,i)=>f.toLowerCase().includes('argenfunds')?i:-1).filter(i=>i>=0)
+  );
+
+  const argRows = fechaRows.filter(r=>argenfundsFoIdxs.has(r[3]) && (moIdx<0||r[4]===moIdx));
+
+  // Agrupar por Clase
+  const byClase={};
+  argRows.forEach(r=>{
+    const lkp=A.lookup[r[1]];
+    const cl=lkp?lkp[1]:'Otros';
+    byClase[cl]=(byClase[cl]||0)+r[5];
+  });
+
+  const totalB=Object.values(byClase).reduce((s,v)=>s+v,0);
+  let claseList=Object.entries(byClase).sort((a,b)=>(b[1]-a[1])*recSortB*-1);
+
+  document.getElementById('rec-b-title').textContent=`Cartera Argenfunds en ${moneda}`;
+  document.getElementById('rec-b-meta').textContent=`${claseList.length} clases · ${fmtDate(fecha)}`;
+  document.getElementById('rec-b-total').textContent=`${fmtNum(totalB)} ${moneda}`;
+
+  document.querySelector('#rec-table-b tbody').innerHTML = claseList.length
+    ? claseList.map(([cl,m])=>{
+        const pct=totalB>0?(m/totalB*100).toFixed(1):'0.0';
+        return `<tr>
+          <td style="color:var(--text)">${cl}</td>
+          <td style="text-align:right;font-family:var(--mono)">${fmtNum(m)}</td>
+          <td style="text-align:right;color:var(--text2)">${pct}%</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="3" style="text-align:center;padding:30px;color:var(--text3)">Sin cartera para esta moneda y fecha</td></tr>`;
+}
+
+function sortRec(side){
+  if(side==='a'){ recSortA*=-1; }
+  else { recSortB*=-1; }
+  renderReciprocidad();
 }
 
 // ══ RESET ══
