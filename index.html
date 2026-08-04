@@ -271,39 +271,24 @@
 
 <!-- ═══ RECIPROCIDAD ═══ -->
 <div id="panel-reciprocidad" class="panel">
-
   <div class="filters-bar">
-    <div class="filter-group">
-      <span class="filter-label">Fecha</span>
-      <select id="rec-fecha" onchange="renderReciprocidad()"></select>
-    </div>
+    <div class="filter-group"><span class="filter-label">Fecha</span><select id="rec-fecha" onchange="renderReciprocidad()"></select></div>
     <div class="filter-sep"></div>
-    <div class="filter-group">
-      <span class="filter-label">Moneda</span>
+    <div class="filter-group"><span class="filter-label">Moneda</span>
       <select id="rec-moneda" onchange="renderReciprocidad()">
-        <option value="ARS">ARS</option>
-        <option value="USD">USD</option>
-        <option value="USB">USB</option>
+        <option value="ARS">ARS</option><option value="USD">USD</option><option value="USB">USB</option>
       </select>
     </div>
     <div class="filter-sep"></div>
-    <div class="filter-group">
-      <span class="filter-label">Filtrar SG Origen</span>
-      <select id="rec-sg-origen" onchange="renderReciprocidad()"><option value="">Todas</option></select>
-    </div>
-    <div class="filter-group">
-      <span class="filter-label">Filtrar SG Destino</span>
-      <select id="rec-sg-destino" onchange="renderReciprocidad()"><option value="">Todas</option></select>
-    </div>
+    <div class="filter-group"><span class="filter-label">SG Origen</span><select id="rec-sg-origen" onchange="renderReciprocidad()"><option value="">Todas</option></select></div>
+    <div class="filter-group"><span class="filter-label">SG Destino</span><select id="rec-sg-destino" onchange="renderReciprocidad()"><option value="">Todas</option></select></div>
     <div class="filter-sep"></div>
     <button class="btn-reset" onclick="resetReciprocidad()">Limpiar</button>
   </div>
-
   <div id="rec-loading" style="display:none;text-align:center;padding:40px;color:var(--text2)">
     <div class="spinner" style="display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:8px"></div>
     <div>Cargando datos...</div>
   </div>
-
   <div id="rec-content">
     <div class="full-col">
       <div class="card">
@@ -311,19 +296,13 @@
           <span class="card-title">Reciprocidad entre Sociedades Gerentes — FCI como activo</span>
           <span class="card-meta" id="rec-meta"></span>
         </div>
-        <div class="table-wrap" style="max-height:70vh">
-          <table id="rec-table">
-            <thead id="rec-thead"></thead>
-            <tbody id="rec-tbody"></tbody>
-          </table>
-        </div>
+        <div class="table-wrap" style="max-height:70vh"><table id="rec-table"><thead id="rec-thead"></thead><tbody id="rec-tbody"></tbody></table></div>
         <div style="padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text2)">
-          Filas = Sociedad Gerente <strong>Origen</strong> (quien invierte) · Columnas = Sociedad Gerente <strong>Destino</strong> (en quién invierte) · Celdas vacías = sin inversión
+          Filas = SG <strong>Origen</strong> (quien invierte) · Columnas = SG <strong>Destino</strong> (en quién invierte) · Solo se muestran filas y columnas con valores
         </div>
       </div>
     </div>
   </div>
-
 </div>
 
 </main>
@@ -626,10 +605,12 @@ function renderEspecieResult(){
   // Build header: Nombre | d0 | Δ% | d1 | Δ% | d2 | Δ% total
   // Columns: col 0=name, col 1..n=date vals, col n+1..(2n-1)=deltas between consecutive, col 2n=total delta
   const thead=document.getElementById('esp-thead');
+  const datesRev=[...dates].reverse();
   let thHtml=`<tr><th style="text-align:left;cursor:default">Soc. Gerente / Fondo</th>`;
-  dates.forEach((d,i)=>{
+  datesRev.forEach((d,ri)=>{
+    const i=n-1-ri;
     thHtml+=`<th onclick="sortEsp(${i+1})">${fmtDate(d)}</th>`;
-    if(i<n-1) thHtml+=`<th style="cursor:default;color:var(--text3)">Δ ${fmtDateShort(dates[i])}→${fmtDateShort(dates[i+1])}</th>`;
+    if(ri<n-1) thHtml+=`<th style="cursor:default;color:var(--text3)">Δ</th>`;
   });
   thHtml+=`<th onclick="sortEsp(${n+1})">Δ Total</th></tr>`;
   thead.innerHTML=thHtml;
@@ -675,19 +656,17 @@ function renderEspecieResult(){
     const isExp=!!expandedSGs.esp[sg];
     html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('esp','${esc(sg)}')">
       <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>`;
-    gd.vals.forEach((v,i)=>{
-      html+=`<td>${fmtNum(v)}</td>`;
-      if(i<n-1) html+=deltaHtml(gd.vals[i],gd.vals[i+1]);
-    });
+    for(let ri=0;ri<n;ri++){const i=n-1-ri;
+      html+=`<td>${fmtNum(gd.vals[i])}</td>`;
+      if(ri<n-1) html+=deltaHtml(gd.vals[i-1],gd.vals[i]);
+    }
     html+=totalDelta(gd.vals)+'</tr>';
-
-    // Fondo rows
     Object.entries(gd.fondos).sort((a,b)=>b[1].vals[lastFi]-a[1].vals[lastFi]).forEach(([fo,fd])=>{
       html+=`<tr class="fondo-row ${isExp?'':'hidden'}"><td>${fo}</td>`;
-      fd.vals.forEach((v,i)=>{
-        html+=`<td>${v?fmtNum(v):'—'}</td>`;
-        if(i<n-1) html+=deltaHtml(fd.vals[i],fd.vals[i+1]);
-      });
+      for(let ri=0;ri<n;ri++){const i=n-1-ri;
+        html+=`<td>${fd.vals[i]?fmtNum(fd.vals[i]):'—'}</td>`;
+        if(ri<n-1) html+=deltaHtml(fd.vals[i-1],fd.vals[i]);
+      }
       html+=totalDelta(fd.vals)+'</tr>';
     });
   });
@@ -698,23 +677,18 @@ function sortEsp(col){espSortDir=espSortCol===col?espSortDir*-1:-1;espSortCol=co
 
 
 // ══ RECIPROCIDAD ══
-let recData = null;
-let recInitDone = false;
+let recData=null, recInitDone=false;
 
 async function initReciprocidad(){
   if(!recInitDone){
-    const sel = document.getElementById('rec-fecha');
-    DATA.fechas.forEach((d,i)=>{
-      const o = new Option(fmtDate(d), d);
-      if(i===DATA.fechas.length-1) o.selected=true;
-      sel.add(o);
-    });
-    recInitDone = true;
+    const sel=document.getElementById('rec-fecha');
+    DATA.fechas.forEach((d,i)=>{const o=new Option(fmtDate(d),d);if(i===DATA.fechas.length-1)o.selected=true;sel.add(o);});
+    recInitDone=true;
   }
   if(!recData){
     document.getElementById('rec-loading').style.display='block';
     document.getElementById('rec-content').style.display='none';
-    try{ await loadReciprocidad(); }catch(e){ document.getElementById('rec-loading').style.display='none'; return; }
+    try{await loadReciprocidad();}catch(e){document.getElementById('rec-loading').style.display='none';return;}
     document.getElementById('rec-loading').style.display='none';
     document.getElementById('rec-content').style.display='block';
   }
@@ -725,90 +699,77 @@ function loadReciprocidad(){
   return new Promise((resolve,reject)=>{
     if(recData){resolve();return;}
     const s=document.createElement('script');s.src='reciprocidad.js';
-    s.onload=()=>{recData=RECIP;resolve();};
-    s.onerror=()=>reject();
+    s.onload=()=>{recData=RECIP;resolve();};s.onerror=()=>reject();
     document.head.appendChild(s);
   });
 }
 
 function renderReciprocidad(){
-  if(!recData) return;
-  const fecha  = document.getElementById('rec-fecha').value;
-  const moneda = document.getElementById('rec-moneda').value;
-  const sgOFil = document.getElementById('rec-sg-origen').value;
-  const sgDFil = document.getElementById('rec-sg-destino').value;
+  if(!recData)return;
+  const fecha=document.getElementById('rec-fecha').value;
+  const moneda=document.getElementById('rec-moneda').value;
+  const sgOFil=document.getElementById('rec-sg-origen').value;
+  const sgDFil=document.getElementById('rec-sg-destino').value;
 
-  const fechaData = recData[fecha] || {};
-  const monedaData = fechaData[moneda] || {};
+  const monedaData=(recData[fecha]||{})[moneda]||{};
 
-  // Parse into {origen: {destino: monto}}
-  const matrix = {};
-  const allOrigenes = new Set();
-  const allDestinos = new Set();
-
-  for(const [key, monto] of Object.entries(monedaData)){
-    const [o, d] = key.split('||');
-    allOrigenes.add(o); allDestinos.add(d);
-    if(!matrix[o]) matrix[o] = {};
-    matrix[o][d] = (matrix[o][d]||0) + monto;
+  const matrix={};
+  const allOrigenes=new Set(), allDestinos=new Set();
+  for(const [key,monto] of Object.entries(monedaData)){
+    const [o,d]=key.split('||');
+    allOrigenes.add(o);allDestinos.add(d);
+    if(!matrix[o])matrix[o]={};
+    matrix[o][d]=(matrix[o][d]||0)+monto;
   }
 
-  // Apply filters
-  const origenes = [...allOrigenes].filter(o=>!sgOFil||o===sgOFil).sort();
-  const destinos = [...allDestinos].filter(d=>!sgDFil||d===sgDFil).sort();
+  // Apply SG filters
+  let origenes=[...allOrigenes].filter(o=>!sgOFil||o===sgOFil).sort();
+  let destinos=[...allDestinos].filter(d=>!sgDFil||d===sgDFil).sort();
 
-  // Populate SG selectors (first render)
-  const selO = document.getElementById('rec-sg-origen');
-  const selD = document.getElementById('rec-sg-destino');
-  if(selO.options.length <= 1){
+  // ── KEY CHANGE: remove columns with all zeros, remove rows with all zeros ──
+  destinos=destinos.filter(d=>origenes.some(o=>matrix[o]&&matrix[o][d]>0));
+  origenes=origenes.filter(o=>destinos.some(d=>matrix[o]&&matrix[o][d]>0));
+
+  // Populate selectors once
+  const selO=document.getElementById('rec-sg-origen');
+  const selD=document.getElementById('rec-sg-destino');
+  if(selO.options.length<=1){
     [...allOrigenes].sort().forEach(sg=>selO.add(new Option(sg,sg)));
     [...allDestinos].sort().forEach(sg=>selD.add(new Option(sg,sg)));
   }
 
-  document.getElementById('rec-meta').textContent = `${origenes.length} SG origen × ${destinos.length} SG destino · ${fmtDate(fecha)} · ${moneda}`;
+  document.getElementById('rec-meta').textContent=`${origenes.length} SG origen × ${destinos.length} SG destino · ${fmtDate(fecha)} · ${moneda}`;
 
-  // Build header
-  const thead = document.getElementById('rec-thead');
-  thead.innerHTML = `<tr>
+  // Header
+  const thead=document.getElementById('rec-thead');
+  thead.innerHTML=`<tr>
     <th style="text-align:left;position:sticky;left:0;z-index:3;background:var(--surface2);min-width:140px">Origen \ Destino</th>
     ${destinos.map(d=>`<th style="text-align:right;white-space:nowrap">${d}</th>`).join('')}
     <th style="text-align:right;background:rgba(88,166,255,.08);color:var(--accent)">Total Origen</th>
   </tr>`;
 
-  // Build rows
-  // Row totals and column totals
-  const colTotals = {};
+  // Rows + totals
+  const colTotals={};
   destinos.forEach(d=>colTotals[d]=0);
-  let grandTotal = 0;
+  let grandTotal=0;
 
-  const rows = origenes.map(o=>{
-    let rowTotal = 0;
-    const cells = destinos.map(d=>{
-      const v = (matrix[o]&&matrix[o][d])||0;
-      colTotals[d] += v;
-      rowTotal += v;
-      grandTotal += v;
-      return v;
-    });
-    return {o, cells, rowTotal};
-  }).filter(r=>r.rowTotal>0 || !sgOFil);
-
-  const tbody = document.getElementById('rec-tbody');
-  tbody.innerHTML = rows.map(({o,cells,rowTotal})=>`
-    <tr>
+  const tbody=document.getElementById('rec-tbody');
+  let html='';
+  origenes.forEach(o=>{
+    let rowTotal=0;
+    const cells=destinos.map(d=>{const v=(matrix[o]&&matrix[o][d])||0;colTotals[d]+=v;rowTotal+=v;grandTotal+=v;return v;});
+    html+=`<tr>
       <td style="font-weight:600;color:var(--accent);position:sticky;left:0;background:var(--surface);z-index:1;white-space:nowrap">${o}</td>
-      ${cells.map(v=>v>0
-        ? `<td style="text-align:right;font-family:var(--mono)">${fmtNum(v)}</td>`
-        : `<td style="color:var(--text3);text-align:center">—</td>`
-      ).join('')}
+      ${cells.map(v=>v>0?`<td style="text-align:right;font-family:var(--mono)">${fmtNum(v)}</td>`:`<td style="color:var(--text3);text-align:center">—</td>`).join('')}
       <td style="text-align:right;font-family:var(--mono);font-weight:700;background:rgba(88,166,255,.06);color:var(--accent)">${fmtNum(rowTotal)}</td>
-    </tr>
-  `).join('') + `
-    <tr style="border-top:2px solid var(--border)">
-      <td style="font-weight:700;color:var(--text2);position:sticky;left:0;background:var(--surface2);z-index:1">Total Destino</td>
-      ${destinos.map(d=>`<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--accent2)">${fmtNum(colTotals[d])}</td>`).join('')}
-      <td style="text-align:right;font-family:var(--mono);font-weight:700;background:rgba(88,166,255,.1);color:var(--accent)">${fmtNum(grandTotal)}</td>
     </tr>`;
+  });
+  html+=`<tr style="border-top:2px solid var(--border)">
+    <td style="font-weight:700;color:var(--text2);position:sticky;left:0;background:var(--surface2);z-index:1">Total Destino</td>
+    ${destinos.map(d=>`<td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--accent2)">${fmtNum(colTotals[d])}</td>`).join('')}
+    <td style="text-align:right;font-family:var(--mono);font-weight:700;background:rgba(88,166,255,.1);color:var(--accent)">${fmtNum(grandTotal)}</td>
+  </tr>`;
+  tbody.innerHTML=html;
 }
 
 function resetReciprocidad(){
@@ -822,7 +783,7 @@ function switchPanel(p){
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('panel-'+p).classList.add('active');
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['posicion','especie','reciprocidad'][i]===p));
-  if(p==='reciprocidad') initReciprocidad();
+  if(p==='reciprocidad')initReciprocidad();
 }
 
 // ══ RESET ══
