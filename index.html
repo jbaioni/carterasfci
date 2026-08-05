@@ -152,7 +152,7 @@
     <div class="filter-group"><span class="filter-label">Soc. Gerente</span><select id="pos-sg" onchange="onPosSgChange()"><option value="">Todas</option></select></div>
     <div class="filter-group"><span class="filter-label">Fondo</span><select id="pos-fondo" onchange="onPosFondoChange()"><option value="">Todos</option></select></div>
     <div class="filter-sep"></div>
-    <div class="filter-group"><span class="filter-label">Tipo de Activo (Clase)</span><select id="pos-clase" onchange="onPosClaseChange()"><option value="">Todos</option></select></div>
+    <div class="filter-group"><span class="filter-label">Subclase</span><select id="pos-clase" onchange="onPosClaseChange()"><option value="">Todos</option></select></div>
     <div class="filter-group" style="position:relative">
       <span class="filter-label">Activo</span>
       <input type="text" id="pos-activo-input" placeholder="Escribí para buscar..." oninput="onPosActivoInput()" onkeydown="onPosActivoKey(event)" autocomplete="off" style="min-width:200px">
@@ -172,7 +172,7 @@
 
   <div class="two-col">
     <div class="card">
-      <div class="card-header"><span class="card-title">Por Tipo de Activo</span><span class="card-meta" id="pie-meta"></span></div>
+      <div class="card-header"><span class="card-title">Por Subclase</span><span class="card-meta" id="pie-meta"></span></div>
       <div class="chart-wrap"><canvas id="chart-pie-sg"></canvas></div>
     </div>
     <div class="card">
@@ -413,7 +413,7 @@ function renderPosicion(){
     let aRows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r=>r[0]===fi);
 
     if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
-    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});
+    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[2]===clase;});
 
     if(sgFil){const si=A.sgs.indexOf(sgFil);aRows=aRows.filter(r=>r[2]===si);}
     if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
@@ -528,7 +528,7 @@ function renderPosicion(){
   if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
   if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRows=aRows.filter(r=>r[4]===mi);}
   if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
-  if(clase){aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});}
+  if(clase){aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[2]===clase;});}
 
   // Build: {sg: {cl: {ek: {total, label, fondos:{fo: monto}}}}}
   const tree={};
@@ -537,7 +537,7 @@ function renderPosicion(){
     const fo=A.fos[r[3]];
     const ek=A.eks[r[1]];
     const lkp=A.lookup[r[1]]||['','',''];
-    const cl=lkp[1]||'Otros';
+    const cl=lkp[2]||'Otros';
     const al=lkp[0]||ek;
     const m=r[5];
     if(!tree[sg])tree[sg]={total:0,clases:{}};
@@ -1005,7 +1005,7 @@ async function refreshPosClaseActivo(){
 
   // Build available Clase options from matching rows
   const claseSet = new Set();
-  for(const r of rows){ const lkp=A.lookup[r[1]]; if(lkp && lkp[1]) claseSet.add(lkp[1]); }
+  for(const r of rows){ const lkp=A.lookup[r[1]]; if(lkp && lkp[2]) claseSet.add(lkp[2]); }
   const clases = [...claseSet].sort();
   const selClase = document.getElementById('pos-clase');
   const prevClase = selClase.value;
@@ -1036,7 +1036,7 @@ function getPosActivoContextRows(){
   let rows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r => r[0]===fi);
   if(sg){ const si=A.sgs.indexOf(sg); rows = rows.filter(r=>r[2]===si); }
   if(fondo){ const foi=A.fos.indexOf(fondo); rows = rows.filter(r=>r[3]===foi); }
-  if(clase) rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[1]===clase; });
+  if(clase) rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[2]===clase; });
   return rows;
 }
 
@@ -1109,7 +1109,7 @@ function getPosActivoFondoSet(){
   const fi = DATA.fechas.indexOf(fecha);
   let rows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r => r[0]===fi);
   if(activoEk){ rows = rows.filter(r => A.eks[r[1]]===activoEk); }
-  else if(clase){ rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[1]===clase; }); }
+  else if(clase){ rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[2]===clase; }); }
 
   return new Set(rows.map(r => A.fos[r[3]]));
 }
@@ -1135,7 +1135,7 @@ async function openCartera(fondo, fecha, sg) {
 
   cartAllData = rows.map(r => {
     const lkp = A.lookup[r[1]] || ['','',''];
-    return { cl: lkp[1]||'—', sc: lkp[2]||'—', ac: lkp[0]||A.eks[r[1]], mo: A.mos[r[4]], m: r[5] };
+    return { cl: lkp[2]||'—', sc: lkp[2]||'—', ac: lkp[0]||A.eks[r[1]], mo: A.mos[r[4]], m: r[5] };
   });
 
   // Populate clase/subclase filters
