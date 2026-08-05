@@ -152,7 +152,7 @@
 
   <div class="two-col">
     <div class="card">
-      <div class="card-header"><span class="card-title">Por Sociedad Gerente</span><span class="card-meta" id="pie-meta"></span></div>
+      <div class="card-header"><span class="card-title">Por Tipo de Activo</span><span class="card-meta" id="pie-meta"></span></div>
       <div class="chart-wrap"><canvas id="chart-pie-sg"></canvas></div>
     </div>
     <div class="card">
@@ -434,11 +434,33 @@ function renderPosicion(){
     <div class="kpi-card"><div class="kpi-label">Soc. Gerentes</div><div class="kpi-value">${sgsCount||'—'}</div></div>`;
 
   // Charts
-  const bySGChart={};
-  Object.entries(bySGFull).forEach(([sg,d])=>bySGChart[sg]=d.total);
-  const sgE=Object.entries(bySGChart).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  document.getElementById('pie-meta').textContent=`${sgE.length} SG`;
-  renderChart('chart-pie-sg','doughnut',{labels:sgE.map(e=>e[0]||'(sin SG)'),datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
+  // Pie: distribución por Clase de activo
+  if(activosLoaded){
+    const A=ACTIVOS;
+    const fi=DATA.fechas.indexOf(fecha);
+    let aRowsPie=activosByFecha?activosByFecha[fi]:A.rows.filter(r=>r[0]===fi);
+    if(sgFil){const si=A.sgs.indexOf(sgFil);aRowsPie=aRowsPie.filter(r=>r[2]===si);}
+    if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRowsPie=aRowsPie.filter(r=>r[3]===foi);}
+    if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRowsPie=aRowsPie.filter(r=>r[4]===mi);}
+    if(activoEk) aRowsPie=aRowsPie.filter(r=>A.eks[r[1]]===activoEk);
+    const byClase={};
+    aRowsPie.forEach(r=>{const cl=(A.lookup[r[1]]?A.lookup[r[1]][1]:null)||'Otros';byClase[cl]=(byClase[cl]||0)+r[5];});
+    const claseE=Object.entries(byClase).sort((a,b)=>b[1]-a[1]);
+    const totalCl=claseE.reduce((s,e)=>s+e[1],0);
+    document.getElementById('pie-meta').textContent=`${claseE.length} clases`;
+    renderChart('chart-pie-sg','doughnut',{
+      labels:claseE.map(e=>{const pct=totalCl>0?(e[1]/totalCl*100).toFixed(1):'0';return`${e[0]} (${pct}%)`;}),
+      datasets:[{data:claseE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,claseE.length),borderColor:'#161b22',borderWidth:2}]
+    },{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
+  } else {
+    // Fallback: por SG mientras carga activos.js
+    const bySGChart={};
+    Object.entries(bySGFull).forEach(([sg,d])=>bySGChart[sg]=d.total);
+    const sgE=Object.entries(bySGChart).sort((a,b)=>b[1]-a[1]).slice(0,12);
+    document.getElementById('pie-meta').textContent='cargando clases...';
+    renderChart('chart-pie-sg','doughnut',{labels:sgE.map(e=>e[0]||'(sin SG)'),datasets:[{data:sgE.map(e=>e[1]),backgroundColor:PALETTE.slice(0,sgE.length),borderColor:'#161b22',borderWidth:2}]},{plugins:{legend:{position:'right',labels:{color:'#8b949e',font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmtBig(ctx.raw)}`}}}});
+    if(!activosLoading) loadActivos().then(()=>renderPosicion());
+  }
 
   const byFChart={};
   Object.values(bySGFull).forEach(d=>Object.entries(d.fondos).forEach(([fo,fd])=>byFChart[fo]=(byFChart[fo]||0)+fd.total));
