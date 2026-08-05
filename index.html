@@ -74,6 +74,26 @@
   tr.fondo-row td:first-child{text-align:left;padding-left:36px;color:var(--text);font-family:var(--font);}
   tr.fondo-row:hover td{background:rgba(255,255,255,.03);}
   tr.fondo-row.hidden{display:none;}
+  /* Nivel 2: Clase */
+  tr.clase-row td{background:rgba(255,255,255,.02);padding:7px 12px;border-bottom:1px solid rgba(48,54,61,.2);cursor:pointer;}
+  tr.clase-row:hover td{background:rgba(255,255,255,.05);}
+  tr.clase-row td:first-child{text-align:left;padding-left:28px;color:var(--text2);font-weight:600;font-size:12px;}
+  tr.clase-row td{font-family:var(--mono);text-align:right;color:var(--text2);}
+  tr.clase-row.hidden{display:none;}
+  tr.clase-row.expanded .expand-icon{transform:rotate(90deg);}
+  /* Nivel 3: Activo */
+  tr.activo-row td{padding:7px 12px;border-bottom:1px solid rgba(48,54,61,.15);cursor:pointer;}
+  tr.activo-row:hover td{background:rgba(255,255,255,.03);}
+  tr.activo-row td:first-child{text-align:left;padding-left:48px;color:var(--text);font-size:12px;}
+  tr.activo-row td{font-family:var(--mono);text-align:right;color:var(--text);}
+  tr.activo-row.hidden{display:none;}
+  tr.activo-row.expanded .expand-icon{transform:rotate(90deg);}
+  /* Nivel 4: Fondo */
+  tr.pos-fondo-row td{padding:6px 12px;border-bottom:1px solid rgba(48,54,61,.1);}
+  tr.pos-fondo-row:hover td{background:rgba(255,255,255,.03);}
+  tr.pos-fondo-row td:first-child{text-align:left;padding-left:68px;font-size:11px;}
+  tr.pos-fondo-row td{font-family:var(--mono);text-align:right;color:var(--text2);font-size:11px;}
+  tr.pos-fondo-row.hidden{display:none;}
 
   .delta-pos{color:var(--accent2);font-weight:600;}
   .delta-neg{color:var(--accent3);font-weight:600;}
@@ -314,6 +334,8 @@ let activosLoaded=false,activosLoading=false;
 let currentEspecie='',especieRows=[];
 let acSelected=-1;
 let expandedSGs={pos:{},esp:{}};
+let expandedClases={}; // key: sg+'||'+clase
+let expandedActivos={}; // key: sg+'||'+clase+'||'+ek
 let posSortCol=2,posSortDir=-1;
 let espSortCol=2,espSortDir=-1; // sort by last date by default
 
@@ -468,35 +490,125 @@ function renderPosicion(){
   document.getElementById('bar-meta').textContent=`top 15 de ${Object.keys(byFChart).length}`;
   renderChart('chart-bar-fondos','bar',{labels:topF.map(e=>e[0].length>28?e[0].slice(0,27)+'…':e[0]),datasets:[{data:topF.map(e=>e[1]),backgroundColor:'rgba(88,166,255,.7)',borderRadius:4}]},{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${fmtBig(ctx.raw)}`}}},scales:{x:{ticks:{color:'#8b949e',callback:v=>fmtBig(v)},grid:{color:'#30363d'}},y:{ticks:{color:'#8b949e',font:{size:10}},grid:{display:false}}}});
 
-  // Tabla agrupada SG → Fondos
+  // Tabla agrupada SG → Clase → Activo → Fondos (requiere activos.js)
   let sgList=Object.entries(bySGFull).sort((a,b)=>(b[1].total-a[1].total)*posSortDir);
   document.getElementById('table-pos-meta').textContent=`${sgsCount} SG · ${fondosCount} fondos`;
 
   const tbody=document.querySelector('#table-posicion tbody');
   let html='';
-  sgList.forEach(([sg,data])=>{
-    const pct=total>0?(data.total/total*100).toFixed(1):'0.0';
-    const isExp=!!expandedSGs.pos[sg];
-    html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
-      <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
-      <td></td>
-      <td>${fmtNum(data.total)}</td>
-      <td>${pct}%</td>
-    </tr>`;
-    Object.entries(data.fondos).sort((a,b)=>b[1].total-a[1].total).forEach(([fo,fd])=>{
-      const fpct=total>0?(fd.total/total*100).toFixed(2):'0.00';
-      html+=`<tr class="fondo-row ${isExp?'':'hidden'}" style="cursor:pointer" onclick="openCartera('${esc(fo)}','${fecha}','${esc(sg)}')">
-        <td style="color:var(--accent4)">${fo}</td>
-        <td><span class="moneda-pill">${fd.mo}</span></td>
-        <td>${fmtNum(fd.total)}</td>
-        <td>${fpct}%</td>
+
+  if(!activosLoaded){
+    // Fallback simple SG→Fondos mientras carga
+    sgList.forEach(([sg,data])=>{
+      const pct=total>0?(data.total/total*100).toFixed(1):'0.0';
+      const isExp=!!expandedSGs.pos[sg];
+      html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
+        <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
+        <td></td><td>${fmtNum(data.total)}</td><td>${pct}%</td>
       </tr>`;
+      if(isExp) Object.entries(data.fondos).sort((a,b)=>b[1].total-a[1].total).forEach(([fo,fd])=>{
+        html+=`<tr class="fondo-row" style="cursor:pointer" onclick="openCartera('${esc(fo)}','${fecha}','${esc(sg)}')">
+          <td style="color:var(--accent4)">${fo}</td>
+          <td><span class="moneda-pill">${fd.mo}</span></td>
+          <td>${fmtNum(fd.total)}</td><td></td>
+        </tr>`;
+      });
+    });
+    tbody.innerHTML=html;
+    return;
+  }
+
+  // Full 4-level: SG → Clase → Activo → Fondos
+  const A=ACTIVOS;
+  const fi=DATA.fechas.indexOf(fecha);
+  let aRows=activosByFecha?activosByFecha[fi]:A.rows.filter(r=>r[0]===fi);
+
+  // Apply same filters as getPosRows
+  if(sgFil){const si=A.sgs.indexOf(sgFil);aRows=aRows.filter(r=>r[2]===si);}
+  if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
+  if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRows=aRows.filter(r=>r[4]===mi);}
+  if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
+  if(clase){aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});}
+
+  // Build: {sg: {cl: {ek: {total, label, fondos:{fo: monto}}}}}
+  const tree={};
+  aRows.forEach(r=>{
+    const sg=A.sgs[r[2]]||'(sin SG)';
+    const fo=A.fos[r[3]];
+    const ek=A.eks[r[1]];
+    const lkp=A.lookup[r[1]]||['','',''];
+    const cl=lkp[1]||'Otros';
+    const al=lkp[0]||ek;
+    const m=r[5];
+    if(!tree[sg])tree[sg]={total:0,clases:{}};
+    tree[sg].total+=m;
+    if(!tree[sg].clases[cl])tree[sg].clases[cl]={total:0,activos:{}};
+    tree[sg].clases[cl].total+=m;
+    if(!tree[sg].clases[cl].activos[ek])tree[sg].clases[cl].activos[ek]={total:0,label:al,fondos:{}};
+    tree[sg].clases[cl].activos[ek].total+=m;
+    tree[sg].clases[cl].activos[ek].fondos[fo]=(tree[sg].clases[cl].activos[ek].fondos[fo]||0)+m;
+  });
+
+  // Sort SGs by total
+  const sgsSorted=Object.entries(tree).sort((a,b)=>(b[1].total-a[1].total)*posSortDir);
+  document.getElementById('table-pos-meta').textContent=`${sgsSorted.length} SG · ${fondosCount} fondos`;
+
+  sgsSorted.forEach(([sg,sgData])=>{
+    const pct=total>0?(sgData.total/total*100).toFixed(1):'0.0';
+    const isExpSG=!!expandedSGs.pos[sg];
+    html+=`<tr class="sg-row ${isExpSG?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
+      <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
+      <td></td><td>${fmtNum(sgData.total)}</td><td>${pct}%</td>
+    </tr>`;
+
+    // Nivel 2: Clases
+    Object.entries(sgData.clases).sort((a,b)=>b[1].total-a[1].total).forEach(([cl,clData])=>{
+      const clKey=esc(sg)+'||'+esc(cl);
+      const isExpCl=!!expandedClases[sg+'||'+cl];
+      const clPct=sgData.total>0?(clData.total/sgData.total*100).toFixed(1):'0.0';
+      html+=`<tr class="clase-row ${isExpSG?'':'hidden'} ${isExpCl?'expanded':''}" onclick="toggleClase('${esc(sg)}','${esc(cl)}')">
+        <td><span class="expand-icon">▶</span>${cl}</td>
+        <td></td><td>${fmtNum(clData.total)}</td><td style="color:var(--text3)">${clPct}% de SG</td>
+      </tr>`;
+
+      // Nivel 3: Activos
+      Object.entries(clData.activos).sort((a,b)=>b[1].total-a[1].total).forEach(([ek,akData])=>{
+        const akKey=sg+'||'+cl+'||'+ek;
+        const isExpAk=!!expandedActivos[akKey];
+        const akPct=clData.total>0?(akData.total/clData.total*100).toFixed(1):'0.0';
+        const visAk=isExpSG&&isExpCl;
+        html+=`<tr class="activo-row ${visAk?'':'hidden'} ${isExpAk?'expanded':''}" onclick="toggleActivo('${esc(sg)}','${esc(cl)}','${esc(ek)}')">
+          <td><span class="expand-icon">▶</span>${akData.label}</td>
+          <td></td><td>${fmtNum(akData.total)}</td><td style="color:var(--text3)">${akPct}% de clase</td>
+        </tr>`;
+
+        // Nivel 4: Fondos
+        Object.entries(akData.fondos).sort((a,b)=>b[1]-a[1]).forEach(([fo,m])=>{
+          const visFo=visAk&&isExpAk;
+          const foPct=akData.total>0?(m/akData.total*100).toFixed(1):'0.0';
+          html+=`<tr class="pos-fondo-row ${visFo?'':'hidden'}" style="cursor:pointer" onclick="openCartera('${esc(fo)}','${fecha}','${esc(sg)}')">
+            <td style="color:var(--accent4)">${fo}</td>
+            <td></td><td>${fmtNum(m)}</td><td style="color:var(--text3)">${foPct}% activo</td>
+          </tr>`;
+        });
+      });
     });
   });
   tbody.innerHTML=html;
 }
 
+function toggleClase(sg,cl){
+  const k=sg+'||'+cl;
+  expandedClases[k]=!expandedClases[k];
+  renderPosicion();
+}
+function toggleActivo(sg,cl,ek){
+  const k=sg+'||'+cl+'||'+ek;
+  expandedActivos[k]=!expandedActivos[k];
+  renderPosicion();
+}
 function toggleSG(panel,sg){
+  if(panel==='pos'){expandedClases={};expandedActivos={};} // reset sub-levels on SG toggle
   expandedSGs[panel][sg]=!expandedSGs[panel][sg];
   if(panel==='pos')renderPosicion();
   else renderEspecieResult();
