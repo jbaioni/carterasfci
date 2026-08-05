@@ -347,8 +347,8 @@ function init(){
   const{sgs,monedas,fondos}=DATA.meta;
   populate('pos-sg',sgs);populate('pos-moneda',monedas);populate('pos-fondo',fondos);
   renderPosicion();
-  // Lazy-load activos in background so Clase/Activo filters populate without blocking initial render
-  ensureActivosForPosicion().then(()=>refreshPosClaseActivo());
+  // Load activos eagerly so pie chart shows subclases immediately
+  ensureActivosForPosicion().then(()=>{refreshPosClaseActivo();renderPosicion();});
 }
 function populate(id,items){
   const s=document.getElementById(id);
@@ -413,7 +413,7 @@ function renderPosicion(){
     let aRows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r=>r[0]===fi);
 
     if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
-    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[2]===clase;});
+    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});
 
     if(sgFil){const si=A.sgs.indexOf(sgFil);aRows=aRows.filter(r=>r[2]===si);}
     if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
@@ -466,7 +466,7 @@ function renderPosicion(){
     if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRowsPie=aRowsPie.filter(r=>r[4]===mi);}
     if(activoEk) aRowsPie=aRowsPie.filter(r=>A.eks[r[1]]===activoEk);
     const byClase={};
-    for(const r of aRowsPie){const lkp=A.lookup[r[1]];if(lkp){const sc=lkp[2]||'Otros';byClase[sc]=(byClase[sc]||0)+r[5];}}
+    aRowsPie.forEach(r=>{const cl=(A.lookup[r[1]]?A.lookup[r[1]][1]:null)||'Otros';byClase[cl]=(byClase[cl]||0)+r[5];});
     const claseE=Object.entries(byClase).sort((a,b)=>b[1]-a[1]);
     const totalCl=claseE.reduce((s,e)=>s+e[1],0);
     document.getElementById('pie-meta').textContent=`${claseE.length} clases`;
@@ -518,30 +518,26 @@ function renderPosicion(){
     return;
   }
 
-  // Full 4-level: SG → Subclase → Activo → Fondos (single pass, optimized)
+  // Full 4-level: SG → Clase → Activo → Fondos
   const A=ACTIVOS;
   const fi=DATA.fechas.indexOf(fecha);
-  const baseRows=activosByFecha?activosByFecha[fi]:A.rows.filter(r=>r[0]===fi);
+  let aRows=activosByFecha?activosByFecha[fi]:A.rows.filter(r=>r[0]===fi);
 
-  // Pre-compute filter indices for speed
-  const sgIdx = sgFil ? A.sgs.indexOf(sgFil) : -1;
-  const foIdx = fondoFil ? A.fos.indexOf(fondoFil) : -1;
-  const moIdx = monedaFil ? A.mos.indexOf(monedaFil) : -1;
+  // Apply same filters as getPosRows
+  if(sgFil){const si=A.sgs.indexOf(sgFil);aRows=aRows.filter(r=>r[2]===si);}
+  if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
+  if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRows=aRows.filter(r=>r[4]===mi);}
+  if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
+  if(clase){aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});}
 
-  // Build tree in ONE pass
+  // Build: {sg: {cl: {ek: {total, label, fondos:{fo: monto}}}}}
   const tree={};
-  for(const r of baseRows){
-    if(sgIdx>=0 && r[2]!==sgIdx) continue;
-    if(foIdx>=0 && r[3]!==foIdx) continue;
-    if(moIdx>=0 && r[4]!==moIdx) continue;
-    if(activoEk && A.eks[r[1]]!==activoEk) continue;
-    const lkp=A.lookup[r[1]];
-    if(!lkp) continue;
-    if(clase && lkp[2]!==clase) continue;
+  aRows.forEach(r=>{
     const sg=A.sgs[r[2]]||'(sin SG)';
     const fo=A.fos[r[3]];
     const ek=A.eks[r[1]];
-    const cl=lkp[2]||'Otros';
+    const lkp=A.lookup[r[1]]||['','',''];
+    const cl=lkp[1]||'Otros';
     const al=lkp[0]||ek;
     const m=r[5];
     if(!tree[sg])tree[sg]={total:0,clases:{}};
@@ -551,7 +547,7 @@ function renderPosicion(){
     if(!tree[sg].clases[cl].activos[ek])tree[sg].clases[cl].activos[ek]={total:0,label:al,fondos:{}};
     tree[sg].clases[cl].activos[ek].total+=m;
     tree[sg].clases[cl].activos[ek].fondos[fo]=(tree[sg].clases[cl].activos[ek].fondos[fo]||0)+m;
-  }
+  });
 
   // Sort SGs by total
   const sgsSorted=Object.entries(tree).sort((a,b)=>(b[1].total-a[1].total)*posSortDir);
@@ -1009,7 +1005,7 @@ async function refreshPosClaseActivo(){
 
   // Build available Clase options from matching rows
   const claseSet = new Set();
-  for(const r of rows){ const lkp=A.lookup[r[1]]; if(lkp && lkp[2]) claseSet.add(lkp[2]); }
+  for(const r of rows){ const lkp=A.lookup[r[1]]; if(lkp && lkp[1]) claseSet.add(lkp[1]); }
   const clases = [...claseSet].sort();
   const selClase = document.getElementById('pos-clase');
   const prevClase = selClase.value;
@@ -1040,7 +1036,7 @@ function getPosActivoContextRows(){
   let rows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r => r[0]===fi);
   if(sg){ const si=A.sgs.indexOf(sg); rows = rows.filter(r=>r[2]===si); }
   if(fondo){ const foi=A.fos.indexOf(fondo); rows = rows.filter(r=>r[3]===foi); }
-  if(clase) rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[2]===clase; });
+  if(clase) rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[1]===clase; });
   return rows;
 }
 
@@ -1113,7 +1109,7 @@ function getPosActivoFondoSet(){
   const fi = DATA.fechas.indexOf(fecha);
   let rows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r => r[0]===fi);
   if(activoEk){ rows = rows.filter(r => A.eks[r[1]]===activoEk); }
-  else if(clase){ rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[2]===clase; }); }
+  else if(clase){ rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[1]===clase; }); }
 
   return new Set(rows.map(r => A.fos[r[3]]));
 }
