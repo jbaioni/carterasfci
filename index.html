@@ -6,6 +6,7 @@
 <title>Carteras FCI · Monitor</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="data.js"></script>
+<script src="activos.js" defer></script>
 <style>
   :root {
     --bg:#0d1117;--surface:#161b22;--surface2:#1c2230;--border:#30363d;
@@ -348,7 +349,8 @@ function init(){
   populate('pos-sg',sgs);populate('pos-moneda',monedas);populate('pos-fondo',fondos);
   renderPosicion();
   // Load activos eagerly so pie chart shows subclases immediately
-  ensureActivosForPosicion().then(()=>{refreshPosClaseActivo();renderPosicion();});
+  if(typeof ACTIVOS!=='undefined'){buildActivosIndex();refreshPosClaseActivo();renderPosicion();}
+  else{loadActivos().then(()=>{refreshPosClaseActivo();renderPosicion();});}
 }
 function populate(id,items){
   const s=document.getElementById(id);
@@ -413,7 +415,7 @@ function renderPosicion(){
     let aRows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r=>r[0]===fi);
 
     if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
-    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});
+    else if(clase) aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[2]===clase;});
 
     if(sgFil){const si=A.sgs.indexOf(sgFil);aRows=aRows.filter(r=>r[2]===si);}
     if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
@@ -500,7 +502,7 @@ function renderPosicion(){
     sgList.forEach(([sg,data])=>{
       const pct=total>0?(data.total/total*100).toFixed(1):'0.0';
       const isExp=!!expandedSGs.pos[sg];
-      html+=`<tr class="sg-row ${isExp?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
+      html+=`<tr class="sg-row ${isExp?'expanded':''}" data-sg="${esc(sg)}" onclick="toggleSG(\'pos\',\'${esc(sg)}\')">
         <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
         <td></td><td>${fmtNum(data.total)}</td><td>${pct}%</td>
       </tr>`;
@@ -526,7 +528,7 @@ function renderPosicion(){
   if(fondoFil){const foi=A.fos.indexOf(fondoFil);aRows=aRows.filter(r=>r[3]===foi);}
   if(monedaFil){const mi=A.mos.indexOf(monedaFil);aRows=aRows.filter(r=>r[4]===mi);}
   if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
-  if(clase){aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[1]===clase;});}
+  if(clase){aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[2]===clase;});}
 
   // Build: {sg: {cl: {ek: {total, label, fondos:{fo: monto}}}}}
   const tree={};
@@ -535,7 +537,7 @@ function renderPosicion(){
     const fo=A.fos[r[3]];
     const ek=A.eks[r[1]];
     const lkp=A.lookup[r[1]]||['','',''];
-    const cl=lkp[1]||'Otros';
+    const cl=lkp[2]||'Otros';
     const al=lkp[0]||ek;
     const m=r[5];
     if(!tree[sg])tree[sg]={total:0,clases:{}};
@@ -554,7 +556,7 @@ function renderPosicion(){
   sgsSorted.forEach(([sg,sgData])=>{
     const pct=total>0?(sgData.total/total*100).toFixed(1):'0.0';
     const isExpSG=!!expandedSGs.pos[sg];
-    html+=`<tr class="sg-row ${isExpSG?'expanded':''}" onclick="toggleSG('pos','${esc(sg)}')">
+    html+=`<tr class="sg-row ${isExpSG?'expanded':''}" data-sg="${esc(sg)}" onclick="toggleSG(\'pos\',\'${esc(sg)}\')">
       <td class="sg-name"><span class="expand-icon">▶</span>${sg}</td>
       <td></td><td>${fmtNum(sgData.total)}</td><td>${pct}%</td>
     </tr>`;
@@ -564,7 +566,7 @@ function renderPosicion(){
       const clKey=esc(sg)+'||'+esc(cl);
       const isExpCl=!!expandedClases[sg+'||'+cl];
       const clPct=sgData.total>0?(clData.total/sgData.total*100).toFixed(1):'0.0';
-      html+=`<tr class="clase-row ${isExpSG?'':'hidden'} ${isExpCl?'expanded':''}" onclick="toggleClase('${esc(sg)}','${esc(cl)}')">
+      html+=`<tr class="clase-row ${isExpSG?'':'hidden'} ${isExpCl?'expanded':''}" data-sg="${esc(sg)}" data-cl="${esc(cl)}" onclick="toggleClase(\'${esc(sg)}\',\'${esc(cl)}\')">
         <td><span class="expand-icon">▶</span>${cl}</td>
         <td></td><td>${fmtNum(clData.total)}</td><td style="color:var(--text3)">${clPct}% de SG</td>
       </tr>`;
@@ -584,7 +586,7 @@ function renderPosicion(){
         Object.entries(akData.fondos).sort((a,b)=>b[1]-a[1]).forEach(([fo,m])=>{
           const visFo=visAk&&isExpAk;
           const foPct=akData.total>0?(m/akData.total*100).toFixed(1):'0.0';
-          html+=`<tr class="pos-fondo-row ${visFo?'':'hidden'}" style="cursor:pointer" onclick="openCartera('${esc(fo)}','${fecha}','${esc(sg)}')">
+          html+=`<tr class="pos-fondo-row ${visFo?'':'hidden'}" data-sg="${esc(sg)}" data-cl="${esc(cl)}" data-ek="${esc(ek)}" style="cursor:pointer" onclick="openCartera('${esc(fo)}','${fecha}','${esc(sg)}')">
             <td style="color:var(--accent4)">${fo}</td>
             <td></td><td>${fmtNum(m)}</td><td style="color:var(--text3)">${foPct}% activo</td>
           </tr>`;
@@ -598,15 +600,34 @@ function renderPosicion(){
 function toggleClase(sg,cl){
   const k=sg+'||'+cl;
   expandedClases[k]=!expandedClases[k];
-  renderPosicion();
+  const isExp=!!expandedClases[k];
+  const tbody=document.querySelector('#table-posicion tbody');
+  tbody.querySelectorAll(`tr.activo-row[data-sg="${CSS.escape(sg)}"][data-cl="${CSS.escape(cl)}"]`).forEach(r=>{
+    r.classList.toggle('hidden',!isExp);
+    if(!isExp){const ek=r.dataset.ek;expandedActivos[sg+'||'+cl+'||'+ek]=false;r.classList.remove('expanded');
+      tbody.querySelectorAll(`tr.pos-fondo-row[data-sg="${CSS.escape(sg)}"][data-cl="${CSS.escape(cl)}"][data-ek="${CSS.escape(ek)}"]`).forEach(f=>f.classList.add('hidden'));}
+  });
+  tbody.querySelectorAll(`tr.clase-row[data-sg="${CSS.escape(sg)}"][data-cl="${CSS.escape(cl)}"]`).forEach(r=>r.classList.toggle('expanded',isExp));
 }
 function toggleActivo(sg,cl,ek){
   const k=sg+'||'+cl+'||'+ek;
   expandedActivos[k]=!expandedActivos[k];
-  renderPosicion();
+  const isExp=!!expandedActivos[k];
+  const tbody=document.querySelector('#table-posicion tbody');
+  tbody.querySelectorAll(`tr.pos-fondo-row[data-sg="${CSS.escape(sg)}"][data-cl="${CSS.escape(cl)}"][data-ek="${CSS.escape(ek)}"]`).forEach(r=>r.classList.toggle('hidden',!isExp));
+  tbody.querySelectorAll(`tr.activo-row[data-sg="${CSS.escape(sg)}"][data-cl="${CSS.escape(cl)}"][data-ek="${CSS.escape(ek)}"]`).forEach(r=>r.classList.toggle('expanded',isExp));
 }
 function toggleSG(panel,sg){
-  if(panel==='pos'){expandedClases={};expandedActivos={};} // reset sub-levels on SG toggle
+  if(panel==='pos'){
+    expandedSGs.pos[sg]=!expandedSGs.pos[sg];
+    const isExp=!!expandedSGs.pos[sg];
+    const tbody=document.querySelector('#table-posicion tbody');
+    if(!isExp){Object.keys(expandedClases).filter(k=>k.startsWith(sg+'||')).forEach(k=>{expandedClases[k]=false;});Object.keys(expandedActivos).filter(k=>k.startsWith(sg+'||')).forEach(k=>{expandedActivos[k]=false;});}
+    tbody.querySelectorAll(`tr.clase-row[data-sg="${CSS.escape(sg)}"]`).forEach(r=>{r.classList.toggle('hidden',!isExp);if(!isExp)r.classList.remove('expanded');});
+    tbody.querySelectorAll(`tr.activo-row[data-sg="${CSS.escape(sg)}"], tr.pos-fondo-row[data-sg="${CSS.escape(sg)}"]`).forEach(r=>r.classList.add('hidden'));
+    tbody.querySelectorAll(`tr.sg-row[data-sg="${CSS.escape(sg)}"]`).forEach(r=>r.classList.toggle('expanded',isExp));
+    return;
+  }
   expandedSGs[panel][sg]=!expandedSGs[panel][sg];
   if(panel==='pos')renderPosicion();
   else renderEspecieResult();
@@ -616,20 +637,20 @@ function sortPos(col){posSortDir=posSortCol===col?posSortDir*-1:-1;posSortCol=co
 // ══ ESPECIE ══
 let activosByFecha=null; // array of arrays: activosByFecha[fi] = rows for that fecha
 
+function buildActivosIndex(){
+  if(activosLoaded)return;
+  activosByFecha=DATA.fechas.map(()=>[]);
+  for(const r of ACTIVOS.rows){activosByFecha[r[0]].push(r);}
+  activosLoaded=true;activosLoading=false;
+}
 function loadActivos(){
-  return new Promise((resolve,reject)=>{
+  return new Promise((resolve)=>{
     if(activosLoaded){resolve();return;}
-    if(activosLoading){const w=()=>{if(activosLoaded)resolve();else setTimeout(w,100);};w();return;}
+    if(activosLoading){const w=()=>{if(activosLoaded)resolve();else setTimeout(w,50);};w();return;}
     activosLoading=true;
-    const s=document.createElement('script');s.src='activos.js';
-    s.onload=()=>{
-      // Build index by fecha once, so subsequent filters don't scan the whole 300k+ array
-      activosByFecha=DATA.fechas.map(()=>[]);
-      for(const r of ACTIVOS.rows){ activosByFecha[r[0]].push(r); }
-      activosLoaded=true;activosLoading=false;resolve();
-    };
-    s.onerror=()=>reject();
-    document.head.appendChild(s);
+    // activos.js loaded via <script defer> — poll until ACTIVOS is defined
+    const wait=()=>{if(typeof ACTIVOS!=='undefined'){buildActivosIndex();resolve();}else setTimeout(wait,50);};
+    wait();
   });
 }
 
@@ -1003,7 +1024,7 @@ async function refreshPosClaseActivo(){
 
   // Build available Clase options from matching rows
   const claseSet = new Set();
-  for(const r of rows){ const lkp=A.lookup[r[1]]; if(lkp && lkp[1]) claseSet.add(lkp[1]); }
+  for(const r of rows){ const lkp=A.lookup[r[1]]; if(lkp && lkp[2]) claseSet.add(lkp[2]); }
   const clases = [...claseSet].sort();
   const selClase = document.getElementById('pos-clase');
   const prevClase = selClase.value;
@@ -1034,7 +1055,7 @@ function getPosActivoContextRows(){
   let rows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r => r[0]===fi);
   if(sg){ const si=A.sgs.indexOf(sg); rows = rows.filter(r=>r[2]===si); }
   if(fondo){ const foi=A.fos.indexOf(fondo); rows = rows.filter(r=>r[3]===foi); }
-  if(clase) rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[1]===clase; });
+  if(clase) rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[2]===clase; });
   return rows;
 }
 
@@ -1107,7 +1128,7 @@ function getPosActivoFondoSet(){
   const fi = DATA.fechas.indexOf(fecha);
   let rows = activosByFecha ? activosByFecha[fi] : A.rows.filter(r => r[0]===fi);
   if(activoEk){ rows = rows.filter(r => A.eks[r[1]]===activoEk); }
-  else if(clase){ rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[1]===clase; }); }
+  else if(clase){ rows = rows.filter(r => { const lkp=A.lookup[r[1]]; return lkp && lkp[2]===clase; }); }
 
   return new Set(rows.map(r => A.fos[r[3]]));
 }
