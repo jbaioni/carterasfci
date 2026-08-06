@@ -348,10 +348,11 @@ function init(){
   const{sgs,monedas,fondos,clases}=DATA.meta;
   populate('pos-sg',sgs);populate('pos-moneda',monedas);populate('pos-fondo',fondos);
   // Populate subclase dropdown from meta (always available, no activos.js needed)
+  const SUBCLASES_FILTRO_LIST=['Acciones','Bonos Corporativos','Cauciones','Cheques Pago Diferido','Cuenta Corriente','Fideicomisos Financieros','Fondos Comunes de Inversion','Obligaciones Negociables','Plazo Fijo','Recibos de Deposito Acciones','Titulos Publicos'];
   const selClaseInit=document.getElementById('pos-clase');
   while(selClaseInit.options.length)selClaseInit.remove(0);
   selClaseInit.add(new Option('Todos',''));
-  (clases||[]).forEach(c=>selClaseInit.add(new Option(c,c)));
+  SUBCLASES_FILTRO_LIST.forEach(c=>selClaseInit.add(new Option(c,c)));
   renderPosicion();
   loadActivos().then(()=>{renderPosicion();});
 }
