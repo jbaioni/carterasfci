@@ -533,7 +533,16 @@ function renderPosicion(){
   if(activoEk) aRows=aRows.filter(r=>A.eks[r[1]]===activoEk);
   if(clase){aRows=aRows.filter(r=>{const lkp=A.lookup[r[1]];return lkp&&lkp[2]===clase;});}
 
-  // Build: {sg: {cl: {ek: {total, label, fondos:{fo: monto}}}}}
+  // Subclases de interés — solo estas se muestran en el árbol (los totales AUM no cambian)
+  const SUBCLASES_FILTRO = new Set([
+    'Obligaciones Negociables','Fondos Comunes de Inversion','Fideicomisos Financieros',
+    'Cuenta Corriente','Plazo Fijo','Cauciones','Acciones','Recibos de Deposito Acciones',
+    'Cheques Pago Diferido','Bonos Corporativos','Titulos Publicos'
+  ]);
+  // Si hay filtro de clase específico, mostrar esa aunque no esté en la lista
+  const subclasFiltroActivo = clase || null;
+
+  // Build tree: total siempre es el AUM completo, pero clases solo incluye las de interés
   const tree={};
   aRows.forEach(r=>{
     const sg=A.sgs[r[2]]||'(sin SG)';
@@ -544,12 +553,15 @@ function renderPosicion(){
     const al=lkp[0]||ek;
     const m=r[5];
     if(!tree[sg])tree[sg]={total:0,clases:{}};
-    tree[sg].total+=m;
-    if(!tree[sg].clases[cl])tree[sg].clases[cl]={total:0,activos:{}};
-    tree[sg].clases[cl].total+=m;
-    if(!tree[sg].clases[cl].activos[ek])tree[sg].clases[cl].activos[ek]={total:0,label:al,fondos:{}};
-    tree[sg].clases[cl].activos[ek].total+=m;
-    tree[sg].clases[cl].activos[ek].fondos[fo]=(tree[sg].clases[cl].activos[ek].fondos[fo]||0)+m;
+    tree[sg].total+=m;  // AUM completo siempre
+    // Solo agregar al árbol visual si está en las subclases de interés (o si hay filtro específico)
+    if(subclasFiltroActivo ? cl===subclasFiltroActivo : SUBCLASES_FILTRO.has(cl)){
+      if(!tree[sg].clases[cl])tree[sg].clases[cl]={total:0,activos:{}};
+      tree[sg].clases[cl].total+=m;
+      if(!tree[sg].clases[cl].activos[ek])tree[sg].clases[cl].activos[ek]={total:0,label:al,fondos:{}};
+      tree[sg].clases[cl].activos[ek].total+=m;
+      tree[sg].clases[cl].activos[ek].fondos[fo]=(tree[sg].clases[cl].activos[ek].fondos[fo]||0)+m;
+    }
   });
 
   // Sort SGs by total
