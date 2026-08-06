@@ -345,11 +345,15 @@ function init(){
   document.getElementById('badge-dates').textContent=DATA.fechas.join(' → ');
   const sel=document.getElementById('pos-fecha');
   DATA.fechas.forEach((d,i)=>{const o=new Option(fmtDate(d),d);if(i===DATA.fechas.length-1)o.selected=true;sel.add(o);});
-  const{sgs,monedas,fondos}=DATA.meta;
+  const{sgs,monedas,fondos,clases}=DATA.meta;
   populate('pos-sg',sgs);populate('pos-moneda',monedas);populate('pos-fondo',fondos);
+  // Populate subclase dropdown from meta (always available, no activos.js needed)
+  const selClaseInit=document.getElementById('pos-clase');
+  while(selClaseInit.options.length)selClaseInit.remove(0);
+  selClaseInit.add(new Option('Todos',''));
+  (clases||[]).forEach(c=>selClaseInit.add(new Option(c,c)));
   renderPosicion();
-  // Load activos eagerly so pie chart shows subclases immediately
-  loadActivos().then(()=>{refreshPosClaseActivo();renderPosicion();});
+  loadActivos().then(()=>{renderPosicion();});
 }
 function populate(id,items){
   const s=document.getElementById(id);
