@@ -760,8 +760,8 @@ function renderEspecieResult(){
   let thHtml=`<tr><th style="text-align:left;cursor:default">Soc. Gerente / Fondo</th>`;
   datesRev.forEach((d,ri)=>{
     const i=n-1-ri;
-    const dateCol=i+1;           // col 1..n = date values
-    const deltaCol=n+1+(n-1-ri); // col n+1..2n-1 = deltas (delta after newest date = col n+1)
+    const dateCol=i+1;       // col 1=oldest..col n=newest
+    const deltaCol=n+1+ri;   // col n+1=delta(newest pair)..col 2n-1=delta(oldest pair)
     thHtml+=`<th onclick="sortEsp(${dateCol})" style="cursor:pointer">${fmtDate(d)}</th>`;
     if(ri<n-1) thHtml+=`<th onclick="sortEsp(${deltaCol})" style="cursor:pointer;color:var(--accent4)">Δ</th>`;
   });
@@ -783,16 +783,13 @@ function renderEspecieResult(){
   let sgList=Object.entries(sgGroups);
   const sc=espSortCol;
   if(sc>=1&&sc<=n){
-    // Sort by date value (col 1=newest, col n=oldest)
-    const fi=sc-1; // index in vals array (newest=n-1, oldest=0); cols are reversed
-    const vIdx=n-sc; // col 1 (newest) = vals[n-1]
-    sgList.sort((a,b)=>(b[1].vals[vIdx]-a[1].vals[vIdx])*espSortDir);
+    // Sort by date value: col 1=oldest=vals[0], col n=newest=vals[n-1]
+    sgList.sort((a,b)=>(b[1].vals[sc-1]-a[1].vals[sc-1])*espSortDir);
   } else if(sc>=n+1&&sc<=2*n-1){
-    // Sort by delta between consecutive dates
-    // deltaCol n+1 = delta between newest(n-1) and next(n-2)
-    const di=sc-(n+1); // 0=newest delta, 1=next delta...
-    const i1=n-1-di; const i0=n-2-di; // vals indices
-    sgList.sort((a,b)=>((a[1].vals[i1]-a[1].vals[i0])-(b[1].vals[i1]-b[1].vals[i0]))*espSortDir*-1);
+    // Sort by delta: deltaCol n+1+ri where ri=0 is newest pair
+    const ri=sc-n-1;
+    const i1=n-1-ri; const i0=n-2-ri;
+    sgList.sort((a,b)=>((b[1].vals[i1]-b[1].vals[i0])-(a[1].vals[i1]-a[1].vals[i0]))*espSortDir);
   } else if(sc===2*n){
     // Sort by total delta (last - first)
     sgList.sort((a,b)=>((b[1].vals[n-1]-b[1].vals[0])-(a[1].vals[n-1]-a[1].vals[0]))*espSortDir);
