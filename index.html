@@ -800,13 +800,15 @@ function renderEspecieResult(){
   document.getElementById('table-esp-meta').textContent=`${sgList.length} SG · ${fondosCount} fondos`;
 
   function deltaHtml(v0,v1){
-    if(!v0)return`<td style="color:var(--text3)">—</td>`;
+    if(!v0&&!v1)return`<td style="color:var(--text3)">—</td>`;
     const d=v1-v0;
+    if(d===0)return`<td style="color:var(--text3)">—</td>`;
     return`<td style="font-family:var(--mono);text-align:right" class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${fmtNum(d)}</td>`;
   }
   function totalDelta(vals){
-    if(!vals[0])return`<td style="color:var(--text3)">—</td>`;
+    if(!vals[0]&&!vals[n-1])return`<td style="color:var(--text3)">—</td>`;
     const d=vals[n-1]-vals[0];
+    if(d===0)return`<td style="color:var(--text3)">—</td>`;
     return`<td style="font-family:var(--mono);text-align:right" class="${d>=0?'delta-pos':'delta-neg'}">${d>=0?'+':''}${fmtNum(d)}</td>`;
   }
 
